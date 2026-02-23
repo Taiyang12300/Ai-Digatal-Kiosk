@@ -22,6 +22,8 @@ async function initDatabase() {
             }
             // อัปเดต Lottie เป็นท่าทางปกติ
             updateLottie('idle');
+            // เรียกสร้างปุ่ม FAQ ทันทีที่โหลดข้อมูลเสร็จ
+            renderFAQButtons();
         }
     } catch (e) {
         console.error("Database Load Error:", e);
@@ -164,5 +166,35 @@ function updateLottie(state) {
     state === 'talking' ? player.setSpeed(1.5) : player.setSpeed(1.0);
 }
 
+// ฟังก์ชันสร้างปุ่มจากชีต FAQ คอลัมน์ A
+function renderFAQButtons() {
+    if (!localDatabase || !localDatabase["FAQ"]) return;
+
+    const container = document.getElementById('faq-container');
+    if (!container) return;
+
+    container.innerHTML = ""; // ล้างปุ่มเก่าก่อน
+
+    const faqData = localDatabase["FAQ"];
+    
+    // วนลูปดึงข้อมูลจากแถวที่ 2 เป็นต้นไป (ข้ามหัวตาราง)
+    for (let i = 1; i < faqData.length; i++) {
+        const buttonText = faqData[i][0]; // ดึงข้อมูลเฉพาะคอลัมน์ A (index 0)
+
+        if (buttonText && buttonText.toString().trim() !== "") {
+            const btn = document.createElement('button');
+            btn.className = 'faq-btn';
+            btn.innerText = buttonText;
+            
+            // เมื่อกดปุ่ม ให้ส่งข้อความบนปุ่มไปค้นหาคำตอบในฐานข้อมูลหลัก
+            btn.onclick = () => {
+                getResponse(buttonText, 'ANY');
+            };
+            container.appendChild(btn);
+        }
+    }
+}
+
 // เริ่มต้นโหลดฐานข้อมูลเมื่อเปิดหน้าเว็บ
 initDatabase();
+
