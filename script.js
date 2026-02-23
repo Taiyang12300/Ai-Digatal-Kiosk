@@ -4,7 +4,7 @@
  */
 
 let localDatabase = null;
-const GAS_URL = "https://script.google.com/macros/s/AKfycbyTvVqzve8RFphsbcZmTCgb5WhWkeBeI65jlYH6LvTx_L-CUZFI2MRJJXd-L0lPotuTXw/exec"; // *** อย่าลืมเปลี่ยนเป็นลิงก์ Web App ของคุณ ***
+const GAS_URL = "https://script.google.com/macros/s/AKfycbxESGw9im7q8wHms4SyFq97gKX572A5cXkIVMgEX8DxqbGQgKq9wu3YITZvyVFbJBxgUA/exec"; // *** อย่าลืมเปลี่ยนเป็นลิงก์ Web App ของคุณ ***
 
 // 1. โหลดคลังข้อมูลทันทีที่เปิดหน้าเว็บ
 async function initDatabase() {
