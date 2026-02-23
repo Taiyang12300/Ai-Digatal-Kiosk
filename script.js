@@ -140,28 +140,22 @@ function speak(text) {
 
 // 6. ฟังก์ชันเปลี่ยนท่าทาง Lottie
 function updateLottie(state) {
-    const player = document.getElementById('lottie-canvas');
+    const player = document.querySelector('lottie-player');
     if (!player) return;
 
-    // ค้นหา URL จาก localDatabase ใน Sheet "Lottie_State" (ถ้าคุณดึงมาแล้ว)
+    // ถ้าฐานข้อมูลโหลดมาแล้ว ให้ดึง URL จาก Sheet
     if (localDatabase && localDatabase["Lottie_State"]) {
         const data = localDatabase["Lottie_State"];
-        for (let i = 1; i < data.length; i++) {
-            if (data[i][0].toString().toLowerCase() === state.toLowerCase()) {
-                player.load(data[i][1]); // โหลด URL ใหม่เข้าเครื่องเล่น
-                return;
-            }
+        const match = data.find(row => row[0].toString().toLowerCase() === state.toLowerCase());
+        if (match) {
+            player.load(match[1]);
+            return;
         }
     }
     
-    // ถ้าหาใน Sheet ไม่เจอ ให้ทำงานตามเงื่อนไขพื้นฐาน
-    if (state === 'talking') {
-        player.setSpeed(1.5);
-    } else {
-        player.setSpeed(1.0);
-    }
+    // ถ้ายังโหลดฐานข้อมูลไม่เสร็จ ให้ขยับความเร็วแทน
+    state === 'talking' ? player.setSpeed(1.5) : player.setSpeed(1.0);
 }
-
 
 // เริ่มต้นโหลดฐานข้อมูล
 initDatabase();
