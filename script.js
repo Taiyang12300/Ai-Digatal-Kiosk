@@ -66,68 +66,59 @@ async function getResponse(userQuery, category) {
         return;
     }
 
-    // บันทึกคำถามลงคอลัมน์ B
-    try {
+    // 1. บันทึกคำถามลงคอลัมน์ B (ส่งแบบดีเลย์ 0.5 วินาที เพื่อไม่ให้ขวางจังหวะเสียงพูด)
+    setTimeout(() => {
         fetch(`${GAS_URL}?action=logOnly&query=${encodeURIComponent(userQuery)}`, { mode: 'no-cors' });
-    } catch (e) { console.log("Log error:", e); }
+    }, 500);
 
     const query = userQuery.toLowerCase().trim();
     let bestMatch = { answer: "", score: 0 };
+    let foundExact = false; // ตัวช่วยประหยัดเวลาค้นหา
 
-    // --- ส่วนแก้ไข: กำหนดเป้าหมายการค้นหาให้ครอบคลุมที่สุด ---
+    // 2. กำหนดเป้าหมายการค้นหา
     let targets = [];
-    
-    // ถ้าเป็น 'ANY' หรือเป็นคำถามทั่วไป ให้รื้อทุกชีตยกเว้นชีตระบบ
     if (category === 'ANY' || category === 'KnowledgeBase') {
         targets = Object.keys(localDatabase).filter(name => 
             name !== "Lottie_State" && name !== "FAQ" && name !== "Setting"
         );
     } else {
-        // ถ้าระบุหมวดมา ให้หาในหมวดนั้น และพ่วง KnowledgeBase เผื่อไว้เสมอ
         targets = [category, "KnowledgeBase"];
     }
-    // -------------------------------------------------------
 
-    targets.forEach(cat => {
+    // 3. เริ่มการค้นหาแบบ Efficient Search
+    for (const cat of targets) {
+        if (foundExact) break; // ถ้าเจอคำตอบที่ตรงเป๊ะจากหมวดก่อนหน้าแล้ว ให้หยุดหาทันที
+
         if (localDatabase[cat]) {
             const data = localDatabase[cat]; 
-            data.forEach((row, index) => {
-                if (index === 0) return; // ข้ามหัวตาราง
-
-                // ตรวจสอบโครงสร้าง: row[0] คือคำถาม, row[1] คือคำตอบ
+            
+            for (let i = 1; i < data.length; i++) {
+                const row = data[i];
                 const key = row[0] ? row[0].toString().toLowerCase().trim() : "";
                 const ans = row[1] ? row[1].toString().trim() : "";
 
-                if (!key || !ans) return;
+                if (!key || !ans) continue;
 
                 let score = 0;
-                // ถ้าคำถามในปุ่ม FAQ ไปโผล่เป็นส่วนหนึ่งของคำถามในฐานข้อมูล (Keyword Match)
+                // ตรวจสอบ Keyword Match (เจอแล้วให้คะแนนเต็มและหยุดหา)
                 if (query.includes(key) || key.includes(query)) {
-                    score = 0.99; // ให้คะแนนเกือบเต็มถ้าเจอคำที่ตรงกัน
+                    score = 0.99;
+                    foundExact = true;
                 } else {
+                    // ถ้าไม่ตรงเป๊ะ ค่อยใช้ Fuzzy Search คำนวณความเหมือน
                     score = calculateSimilarity(query, key);
                 }
 
                 if (score > bestMatch.score) {
                     bestMatch = { answer: ans, score: score };
                 }
-            });
+                
+                if (foundExact) break; // เจอคำตอบที่ดีที่สุดในชีตนี้แล้ว หยุดวนลูปแถว
+            }
         }
-    });
-
-    if (bestMatch.score >= 0.40) {
-        updateLottie('talking');
-        displayResponse(bestMatch.answer);
-        speak(bestMatch.answer);
-    } else {
-        // ถ้าหาไม่เจอจริงๆ น้องจะพูดประโยคนี้
-        const fallback = "ขออภัยค่ะ น้องนำทางยังไม่มีข้อมูลเรื่องนี้ในระบบ กรุณาสอบถามเจ้าหน้าที่ประชาสัมพันธ์นะคะ";
-        displayResponse(fallback);
-        speak(fallback);
     }
-}
 
-    // แสดงผล (ใช้เกณฑ์ความเหมือน 40% ขึ้นไป)
+    // 4. แสดงผลและสั่งงานเสียง
     if (bestMatch.score >= 0.40) {
         updateLottie('talking');
         displayResponse(bestMatch.answer);
