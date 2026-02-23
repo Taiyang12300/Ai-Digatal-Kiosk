@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
+  <style>
+    :root { --primary: #6c5ce7; --bg: #f9f9fb; --accent: #ff7675; }
+    body { font-family: 'Sarabun', sans-serif; background: var(--bg); margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; }
+    #lottie-view { width: 160px; height: 160px; margin-bottom: 10px; border-radius: 50%; background: white; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+    .display-box { background: white; border-radius: 20px; padding: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); width: 90%; max-width: 450px; min-height: 80px; font-size: 18px; margin-bottom: 15px; color: #2d3436; }
+    
+    /* ส่วนพิมพ์ถาม */
+    .input-group { width: 90%; max-width: 450px; display: flex; gap: 8px; margin-bottom: 15px; }
+    #userInput { flex: 1; padding: 12px 20px; border-radius: 25px; border: 2px solid #ddd; font-family: 'Sarabun'; outline: none; }
+    #userInput:focus { border-color: var(--primary); }
+    .btn-send { width: 45px; height: 45px; border-radius: 50%; border: none; background: var(--primary); color: white; cursor: pointer; }
+
+    .btn-mic { width: 80px; height: 80px; border-radius: 50%; border: none; background: var(--primary); color: white; font-size: 35px; cursor: pointer; transition: 0.3s; box-shadow: 0 5px 15px rgba(108, 92, 231, 0.3); }
+    .btn-mic.recording { background: var(--accent); animation: pulse 1.5s infinite; }
+    
+    .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 90%; max-width: 450px; }
+    .btn-cat { padding: 12px; border: none; border-radius: 12px; background: white; color: var(--primary); border: 2px solid var(--primary); font-size: 14px; cursor: pointer; font-weight: 500; }
+    .btn-cat.active { background: var(--primary); color: white; }
+    
+    @keyframes pulse { 0% { transform: scale(1); } 70% { transform: scale(1.1); box-shadow: 0 0 0 15px rgba(255, 118, 117, 0); } 100% { transform: scale(1); } }
+  </style>
+</head>
+<body>
+
+  <div id="lottie-view"></div>
+  <div class="display-box" id="output">ยินดีต้อนรับค่ะ พิมพ์ถามหรือแตะไมค์เพื่อพูดนะคะ</div>
+
+  <div class="input-group">
+    <input type="text" id="userInput" placeholder="พิมพ์คำถามที่นี่..." onkeypress="if(event.key==='Enter') sendText()">
+    <button class="btn-send" onclick="sendText()"><i class="fas fa-paper-plane"></i></button>
+  </div>
+  
+  <div style="text-align: center; margin-bottom: 20px;">
+    <button id="micBtn" class="btn-mic" onclick="toggleListening()"><i class="fas fa-microphone"></i></button>
+    <p id="statusText" style="margin-top:10px; color: #636e72; font-size: 14px;">แตะไมค์เพื่อพูด</p>
+  </div>
+
+  <div class="tabs">
+    <button class="btn-cat active" id="btn1" onclick="setCategory('งานใบอนุญาตขับรถ', 'btn1')">ใบอนุญาตขับรถ</button>
+    <button class="btn-cat" id="btn2" onclick="setCategory('งานทะเบียนรถ', 'btn2')">ทะเบียนรถ</button>
+    <button class="btn-cat" id="btn3" onclick="setCategory('งานตรวจสภาพรถ', 'btn3')">ตรวจสภาพรถ</button>
+    <button class="btn-cat" id="btn4" onclick="setCategory('งานใบอนุญาตประกอบการ', 'btn4')">ประกอบการ</button>
+  </div>
+
+  <script>
+    let animation, currentCategory = 'งานใบอนุญาตขับรถ', recognition, isListening = false;
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    function sendText() {
+      const val = document.getElementById('userInput').value;
+      if(val) { sendToGemini(val); document.getElementById('userInput').value = ''; }
+    }
+
+    if (SpeechRecognition) {
+      recognition = new SpeechRecognition();
+      recognition.lang = 'th-TH';
+      recognition.onstart = () => { isListening = true; document.getElementById('micBtn').classList.add('recording'); };
+      recognition.onresult = (e) => sendToGemini(e.results[0][0].transcript);
+      recognition.onerror = () => stopListening();
+      recognition.onend = () => stopListening();
+    }
+
+    // ปรับปรุงฟังก์ชัน toggleListening ใหม่ให้ดักจับ Error ได้ละเอียดขึ้น
+function toggleListening() {
+  console.log("Mic button clicked");
+  
+  if (!SpeechRecognition) {
+    alert("เบราว์เซอร์นี้ไม่รองรับการรับเสียงค่ะ");
+    return;
+  }
+
+  if (isListening) {
+    recognition.stop();
+  } else {
+    // 1. ปลุกระบบเสียง (บังคับดึงสิทธิ์)
+    window.speechSynthesis.speak(new SpeechSynthesisUtterance(""));
+    
+    try {
+      // 2. สั่งเริ่มรับเสียง
+      recognition.start();
+      console.log("Recognition started...");
+    } catch (e) {
+      console.error("Start error:", e);
+      // 3. ถ้า Error เพราะสิทธิ์ ให้แจ้งเตือนชัดเจน
+      alert("ไมค์ไม่ทำงาน! กรุณากดรูปแม่กุญแจ 🔒 หน้า URL แล้วเลือก 'รีเซ็ตสิทธิ์' จากนั้นกดอนุญาตใหม่อีกครั้งนะคะ");
+    }
+  }
+}
+
+// เพิ่มตัวดักจับตอนรับเสียงสำเร็จ
+if (recognition) {
+  recognition.onresult = (event) => {
+    const text = event.results[0][0].transcript;
+    console.log("ได้ยินว่า: " + text); // ตรวจดูใน Console ว่ามีข้อความขึ้นไหม
+    sendToGemini(text);
+  };
+  
+  recognition.onerror = (event) => {
+    console.error("Speech Error Code: " + event.error);
+    if (event.error === 'no-speech') {
+      document.getElementById('statusText').innerText = "ไม่ได้ยินเสียง... ลองพูดใหม่นะ";
+    }
+    stopListening();
+  };
+}
+
+    function stopListening() {
+      isListening = false;
+      document.getElementById('micBtn').classList.remove('recording');
+    }
+
+    function sendToGemini(query) {
+      document.getElementById('output').innerText = "กำลังประมวลผล: " + query;
+      google.script.run.withSuccessHandler(url => playAni(url)).getLottieUrl('thinking');
+      google.script.run.withSuccessHandler(res => {
+        document.getElementById('output').innerText = res.answer;
+        if(res.url) playAni(res.url); 
+        speak(res.answer);
+      }).getAiResponse(query, currentCategory);
+    }
+
+    function playAni(url) {
+      if (animation) animation.destroy();
+      animation = lottie.loadAnimation({ container: document.getElementById('lottie-view'), renderer: 'svg', loop: true, autoplay: true, path: url });
+    }
+
+    function speak(text) {
+      window.speechSynthesis.cancel();
+      const msg = new SpeechSynthesisUtterance(text.replace(/[*#-]/g, ""));
+      msg.lang = 'th-TH';
+      msg.onend = () => google.script.run.withSuccessHandler(url => playAni(url)).getLottieUrl('idle');
+      window.speechSynthesis.speak(msg);
+    }
+
+    function setCategory(cat, id) {
+      currentCategory = cat;
+      document.querySelectorAll('.btn-cat').forEach(b => b.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+
+    window.onload = () => google.script.run.withSuccessHandler(url => playAni(url)).getLottieUrl('idle');
+  </script>
+</body>
+</html>
