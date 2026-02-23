@@ -12,27 +12,65 @@
     :root { --primary: #6c5ce7; --bg: #f9f9fb; --accent: #ff7675; }
     body { font-family: 'Sarabun', sans-serif; background: var(--bg); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
     
-    /* ปรับแต่งส่วนแสดงผล Lottie */
     .avatar-container { width: 180px; height: 180px; margin-bottom: 15px; border-radius: 50%; background: white; box-shadow: 0 5px 15px rgba(0,0,0,0.05); overflow: hidden; }
     
-    .display-box { background: white; border-radius: 20px; padding: 25px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); width: 90%; max-width: 500px; text-align: left; min-height: 80px; font-size: 18px; margin-bottom: 20px; color: #2d3436; overflow-y: auto; max-height: 200px; border-left: 6px solid var(--primary); }
+    /* ปรับแต่งส่วนแสดงผลข้อความให้ยาวขึ้นและยืดหยุ่น */
+    .display-box { 
+      background: white; 
+      border-radius: 20px; 
+      padding: 25px; 
+      box-shadow: 0 10px 20px rgba(0,0,0,0.05); 
+      width: 90%; 
+      max-width: 500px; 
+      text-align: left; 
+      min-height: 150px; /* เพิ่มความสูงเริ่มต้น */
+      height: auto;      /* ให้ยืดตามข้อความ */
+      font-size: 18px; 
+      margin-bottom: 20px; 
+      color: #2d3436; 
+      border-left: 6px solid var(--primary);
+      line-height: 1.6;
+      overflow: visible; /* ไม่ต้องมี scroll */
+    }
     
     .input-section { width: 90%; max-width: 500px; display: flex; gap: 10px; margin-bottom: 20px; }
-    #userInput { flex: 1; padding: 15px; border-radius: 30px; border: 2px solid #ddd; outline: none; font-family: 'Sarabun', sans-serif; font-size: 16px; transition: 0.3s; }
-    #userInput:focus { border-color: var(--primary); }
+    #userInput { flex: 1; padding: 15px; border-radius: 30px; border: 2px solid #ddd; outline: none; font-family: 'Sarabun', sans-serif; font-size: 16px; }
     
-    .btn-send { width: 50px; height: 50px; border-radius: 50%; border: none; background: var(--primary); color: white; cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center; transition: 0.3s; }
-    .btn-send:hover { transform: scale(1.1); }
+    .btn-send { width: 50px; height: 50px; border-radius: 50%; border: none; background: var(--primary); color: white; cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center; }
+
+    /* ส่วนของปุ่ม FAQ */
+    .faq-title { width: 90%; max-width: 500px; margin: 10px 0; font-weight: 500; color: #636e72; font-size: 14px; }
+    .faq-grid { 
+      display: flex; 
+      flex-wrap: wrap; 
+      gap: 10px; 
+      width: 90%; 
+      max-width: 500px; 
+      margin-bottom: 20px;
+      justify-content: center;
+    }
+    .faq-btn { 
+      padding: 10px 18px; 
+      background: #e0e0ff; 
+      color: var(--primary); 
+      border: none; 
+      border-radius: 20px; 
+      font-size: 14px; 
+      cursor: pointer; 
+      transition: 0.3s;
+      font-weight: 500;
+    }
+    .faq-btn:hover { background: var(--primary); color: white; }
 
     .mic-section { margin-bottom: 20px; text-align: center; }
-    .btn-mic { width: 80px; height: 80px; border-radius: 50%; border: none; background: var(--primary); color: white; font-size: 30px; cursor: pointer; transition: 0.3s; display: flex; align-items: center; justify-content: center; margin: 0 auto; box-shadow: 0 5px 15px rgba(108, 92, 231, 0.3); }
+    .btn-mic { width: 80px; height: 80px; border-radius: 50%; border: none; background: var(--primary); color: white; font-size: 30px; cursor: pointer; display: flex; align-items: center; justify-content: center; margin: 0 auto; }
     .btn-mic.recording { background: var(--accent); animation: pulse 1.5s infinite; }
     
-    .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 90%; max-width: 500px; }
-    .btn-cat { padding: 12px; border: none; border-radius: 12px; background: white; color: var(--primary); border: 2px solid var(--primary); font-size: 14px; cursor: pointer; transition: 0.3s; font-weight: 500; }
+    .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 90%; max-width: 500px; margin-top: 10px; }
+    .btn-cat { padding: 12px; border: none; border-radius: 12px; background: white; color: var(--primary); border: 2px solid var(--primary); font-size: 13px; cursor: pointer; font-weight: 500; }
     .btn-cat.active { background: var(--primary); color: white; }
 
-    @keyframes pulse { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 118, 117, 0.7); } 70% { transform: scale(1.1); box-shadow: 0 0 0 15px rgba(255, 118, 117, 0); } 100% { transform: scale(1); } }
+    @keyframes pulse { 0% { transform: scale(1); } 70% { transform: scale(1.1); } 100% { transform: scale(1); } }
   </style>
 </head>
 <body>
@@ -41,7 +79,11 @@
     <lottie-player id="lottie-canvas" src="https://assets10.lottiefiles.com/packages/lf20_mbye9mxo.json" background="transparent" speed="1" loop autoplay></lottie-player>
   </div>
 
-  <div class="display-box" id="output">(กำลังโหลดฐานข้อมูล...)</div>
+  <div class="display-box" id="response-text">(กำลังโหลดฐานข้อมูล...)</div>
+
+  <div class="faq-title"><i class="fas fa-star"></i> คำถามที่พบบ่อย:</div>
+  <div id="faq-container" class="faq-grid">
+    </div>
 
   <div class="input-section">
     <input type="text" id="userInput" placeholder="พิมพ์คำถามที่นี่..." onkeypress="handleKeyPress(event)">
@@ -60,14 +102,13 @@
     <button class="btn-cat" id="btn4" onclick="setCategory('KnowledgeBase', 'btn4')">ข้อมูลทั่วไป</button>
   </div>
 
-  <script src="script.js"></script>
+  <script src="script.js?v=1.7"></script>
 
   <script>
     let currentCategory = 'งานใบอนุญาตขับรถ';
     let recognition, isListening = false;
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-    // ฟังก์ชันรับค่าจากการพิมพ์
     function handleManualInput() {
       const input = document.getElementById('userInput');
       const text = input.value.trim();
@@ -79,65 +120,47 @@
 
     function handleKeyPress(e) { if (e.key === 'Enter') handleManualInput(); }
 
-    // ฟังก์ชันประมวลผลคำถาม (เรียกใช้ getResponse จาก script.js)
     async function processQuery(query) {
-      document.getElementById('output').innerText = "กำลังค้นหาคำตอบ...";
+      const output = document.getElementById('response-text');
+      output.innerText = "กำลังค้นหาคำตอบ...";
       if (typeof getResponse === "function") {
         await getResponse(query, currentCategory);
-      } else {
-        document.getElementById('output').innerText = "ระบบกำลังโหลดข้อมูล กรุณารอสักครู่นะคะ";
       }
     }
 
-    // ระบบจัดการหมวดหมู่
     function setCategory(cat, btnId) {
       currentCategory = cat;
       document.querySelectorAll('.btn-cat').forEach(b => b.classList.remove('active'));
       document.getElementById(btnId).classList.add('active');
-      document.getElementById('output').innerText = "เลือกหมวด: " + cat + " ถามได้เลยค่ะ";
+      document.getElementById('response-text').innerText = "เลือกหมวด: " + cat + " ถามได้เลยค่ะ";
       
-      // ปลดล็อคเสียงบนมือถือ
-      const silentMsg = new SpeechSynthesisUtterance("");
-      window.speechSynthesis.speak(silentMsg);
+      // ปลดล็อคเสียง
+      window.speechSynthesis.speak(new SpeechSynthesisUtterance(""));
     }
 
-    // ระบบสั่งงานด้วยเสียง (Recognition)
     if (SpeechRecognition) {
       recognition = new SpeechRecognition();
       recognition.lang = 'th-TH';
       recognition.onstart = () => {
         isListening = true;
         document.getElementById('micBtn').classList.add('recording');
-        document.getElementById('statusText').innerText = "กำลังฟัง... พูดได้เลยค่ะ";
+        document.getElementById('statusText').innerText = "กำลังฟัง...";
       };
       recognition.onresult = (event) => {
-        const text = event.results[0][0].transcript;
-        processQuery(text);
+        processQuery(event.results[0][0].transcript);
       };
-      recognition.onerror = () => { stopListening(); };
       recognition.onend = () => { stopListening(); };
     }
 
     function toggleListening() {
-      if (isListening) { recognition.stop(); } 
-      else { 
-        if (recognition) {
-            try { recognition.start(); } catch(e) { console.log("Mic error"); }
-        } else {
-            alert("เบราว์เซอร์นี้ไม่รองรับการสั่งงานด้วยเสียงค่ะ");
-        }
-      }
+      if (isListening) recognition.stop();
+      else { try { recognition.start(); } catch(e) {} }
     }
 
     function stopListening() {
       isListening = false;
       document.getElementById('micBtn').classList.remove('recording');
       document.getElementById('statusText').innerText = "แตะไมค์เพื่อเริ่มพูด";
-    }
-
-    // ฟังก์ชันช่วยแสดงผลข้อความ (จะถูกเรียกจาก script.js)
-    function displayResponse(text) {
-        document.getElementById('output').innerText = text;
     }
   </script>
 </body>
