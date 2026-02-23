@@ -66,7 +66,7 @@ async function getResponse(userQuery, category) {
         return;
     }
 
-    // บันทึกคำถามลงคอลัมน์ B (ตามที่ทำไว้)
+    // บันทึกคำถามลงคอลัมน์ B
     try {
         fetch(`${GAS_URL}?action=logOnly&query=${encodeURIComponent(userQuery)}`, { mode: 'no-cors' });
     } catch (e) { console.log("Log error:", e); }
@@ -74,16 +74,19 @@ async function getResponse(userQuery, category) {
     const query = userQuery.toLowerCase().trim();
     let bestMatch = { answer: "", score: 0 };
 
-    // --- แก้ไขตรงนี้: ถ้าส่ง 'ANY' มา ให้ค้นหาในทุกหมวดที่มีในฐานข้อมูล ---
+    // --- ส่วนแก้ไข: กำหนดเป้าหมายการค้นหาให้ครอบคลุมที่สุด ---
     let targets = [];
-    if (category === 'ANY') {
-        // ดึงชื่อชีตทั้งหมดที่มีใน database มาค้นหา (ยกเว้นชีตระบบ)
-        targets = Object.keys(localDatabase).filter(name => name !== "Lottie_State" && name !== "FAQ");
+    
+    // ถ้าเป็น 'ANY' หรือเป็นคำถามทั่วไป ให้รื้อทุกชีตยกเว้นชีตระบบ
+    if (category === 'ANY' || category === 'KnowledgeBase') {
+        targets = Object.keys(localDatabase).filter(name => 
+            name !== "Lottie_State" && name !== "FAQ" && name !== "Setting"
+        );
     } else {
-        // ถ้าระบุหมวดมา (เช่น กดจาก Tab) ให้หาแค่หมวดนั้นและ KnowledgeBase
+        // ถ้าระบุหมวดมา ให้หาในหมวดนั้น และพ่วง KnowledgeBase เผื่อไว้เสมอ
         targets = [category, "KnowledgeBase"];
     }
-    // -----------------------------------------------------------
+    // -------------------------------------------------------
 
     targets.forEach(cat => {
         if (localDatabase[cat]) {
@@ -91,14 +94,16 @@ async function getResponse(userQuery, category) {
             data.forEach((row, index) => {
                 if (index === 0) return; // ข้ามหัวตาราง
 
+                // ตรวจสอบโครงสร้าง: row[0] คือคำถาม, row[1] คือคำตอบ
                 const key = row[0] ? row[0].toString().toLowerCase().trim() : "";
                 const ans = row[1] ? row[1].toString().trim() : "";
 
                 if (!key || !ans) return;
 
                 let score = 0;
+                // ถ้าคำถามในปุ่ม FAQ ไปโผล่เป็นส่วนหนึ่งของคำถามในฐานข้อมูล (Keyword Match)
                 if (query.includes(key) || key.includes(query)) {
-                    score = 0.95; 
+                    score = 0.99; // ให้คะแนนเกือบเต็มถ้าเจอคำที่ตรงกัน
                 } else {
                     score = calculateSimilarity(query, key);
                 }
@@ -115,12 +120,12 @@ async function getResponse(userQuery, category) {
         displayResponse(bestMatch.answer);
         speak(bestMatch.answer);
     } else {
+        // ถ้าหาไม่เจอจริงๆ น้องจะพูดประโยคนี้
         const fallback = "ขออภัยค่ะ น้องนำทางยังไม่มีข้อมูลเรื่องนี้ในระบบ กรุณาสอบถามเจ้าหน้าที่ประชาสัมพันธ์นะคะ";
         displayResponse(fallback);
         speak(fallback);
     }
 }
-
 
     // แสดงผล (ใช้เกณฑ์ความเหมือน 40% ขึ้นไป)
     if (bestMatch.score >= 0.40) {
