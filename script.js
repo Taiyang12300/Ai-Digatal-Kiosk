@@ -1,10 +1,10 @@
 /**
- * สมองกลน้องนำทาง - ฉบับสมบูรณ์ (Hybrid Search)
- * ทำงานบนเครื่องผู้ใช้ 100% เสถียรทั้งคอมและมือถือ
+ * สมองกลน้องนำทาง - ฉบับปรับปรุงตามโครงสร้าง JSON จริง
+ * ระบบพึ่งพาตัวเอง 100% ไม่ต้องผ่าน AI เพื่อความเสถียรบนมือถือ
  */
 
 let localDatabase = null;
-const GAS_URL = "https://script.google.com/macros/s/AKfycbxV8PF0SyAw3tK8WZUcyZMfBIpLmChF8sDHkWhkfUn2z9wOx2K6PxwXq1es9GJQUDTEzA/exec"; // *** อย่าลืมเปลี่ยนเป็นลิงก์ Web App ของคุณ ***
+const GAS_URL = "https://script.google.com/macros/s/AKfycbxV8PF0SyAw3tK8WZUcyZMfBIpLmChF8sDHkWhkfUn2z9wOx2K6PxwXq1es9GJQUDTEzA/exec/exec"; 
 
 // 1. โหลดคลังข้อมูลทันทีที่เปิดหน้าเว็บ
 async function initDatabase() {
@@ -13,11 +13,15 @@ async function initDatabase() {
         const json = await res.json();
         if (json.database) {
             localDatabase = json.database;
-            console.log("น้องนำทาง: คลังข้อมูลพร้อมใช้งาน (รันระบบพึ่งพาตัวเอง)");
-            // ถ้ามีข้อความต้อนรับในหน้าเว็บ ให้แสดงผลเมื่อโหลดเสร็จ
-            if(document.getElementById('response-text')) {
-                console.log("Database Sync: Success");
+            console.log("น้องนำทาง: คลังข้อมูลพร้อมใช้งาน");
+            
+            // เปลี่ยนข้อความต้อนรับเมื่อโหลดข้อมูลเสร็จ
+            const welcomeBox = document.getElementById('response-text') || document.getElementById('output');
+            if (welcomeBox) {
+                welcomeBox.innerText = "โหลดข้อมูลเสร็จแล้วค่ะ พร้อมให้บริการแล้วนะคะ!";
             }
+            // อัปเดต Lottie เป็นท่าทางปกติ
+            updateLottie('idle');
         }
     } catch (e) {
         console.error("Database Load Error:", e);
@@ -53,7 +57,7 @@ function calculateSimilarity(s1, s2) {
     return (longerLength - editDistance(longer, shorter)) / longerLength;
 }
 
-// 3. ฟังก์ชันหลักในการค้นหาคำตอบ (ทำงานแทน AI)
+// 3. ฟังก์ชันหลักในการค้นหาคำตอบ (ดึงข้อมูลจาก localDatabase ที่โหลดมา)
 async function getResponse(userQuery, category) {
     if (!localDatabase) {
         displayResponse("กรุณารอสักครู่ น้องนำทางกำลังเตรียมข้อมูลค่ะ...");
@@ -63,34 +67,39 @@ async function getResponse(userQuery, category) {
     const query = userQuery.toLowerCase().trim();
     let bestMatch = { answer: "", score: 0 };
 
-    // ค้นหาทั้งในหมวดที่เลือก และใน KnowledgeBase ทั่วไป
+    // ค้นหาในหมวดที่เลือก และหมวดเสริม (KnowledgeBase)
     const targets = [category, "KnowledgeBase"];
 
     targets.forEach(cat => {
         if (localDatabase[cat]) {
-            const data = localDatabase[cat];
-            const keywords = data[0]; // แถว 1: คำถาม/คีย์เวิร์ด
-            const answers = data[1];  // แถว 2: คำตอบ
+            const data = localDatabase[cat]; 
+            // โครงสร้าง JSON ของคุณคือ [ [คำถาม1, คำตอบ1, สถานะ], [คำถาม2, คำตอบ2] ]
+            data.forEach((row, index) => {
+                if (index === 0 && row[0] === "คำถาม") return; // ข้ามหัวตาราง
 
-            for (let i = 0; i < keywords.length; i++) {
-                const key = keywords[i].toString().toLowerCase().trim();
-                if (!key || key === "คำถาม") continue; // ข้ามหัวตาราง
+                const key = row[0] ? row[0].toString().toLowerCase().trim() : "";
+                const ans = row[1] ? row[1].toString().trim() : "";
+
+                if (!key || !ans) return;
 
                 let score = 0;
+                // ตรวจสอบว่าคำถามมีคำที่ระบุไหม (Keyword Match)
                 if (query.includes(key) || key.includes(query)) {
                     score = 0.95; 
                 } else {
+                    // ถ้าไม่ตรงเป๊ะ ให้ใช้ Fuzzy Search
                     score = calculateSimilarity(query, key);
                 }
 
                 if (score > bestMatch.score) {
-                    bestMatch = { answer: answers[i], score: score };
+                    bestMatch = { answer: ans, score: score };
                 }
-            }
+            });
         }
     });
 
-    if (bestMatch.score >= 0.45) {
+    // แสดงผล (ใช้เกณฑ์ความเหมือน 40% ขึ้นไป)
+    if (bestMatch.score >= 0.40) {
         updateLottie('talking');
         displayResponse(bestMatch.answer);
         speak(bestMatch.answer);
@@ -101,61 +110,57 @@ async function getResponse(userQuery, category) {
     }
 }
 
-// 4. ฟังก์ชันแสดงข้อความบนหน้าจอ
+// 4. ฟังก์ชันแสดงข้อความบนหน้าจอ (รองรับทั้ง id 'response-text' และ 'output')
 function displayResponse(text) {
-    const box = document.getElementById('response-text');
+    const box = document.getElementById('response-text') || document.getElementById('output');
     if (box) {
         box.innerText = text;
-        // เอฟเฟกต์ Fade In
         box.style.opacity = 0;
         setTimeout(() => { box.style.opacity = 1; }, 50);
     }
 }
 
-// 5. ฟังก์ชันเสียงพูด (รองรับมือถือ)
+// 5. ฟังก์ชันเสียงพูด (รองรับ Android/iOS)
 function speak(text) {
-    window.speechSynthesis.cancel(); // หยุดเสียงเก่าก่อน
-    
-    // ลบสัญลักษณ์พิเศษเพื่อให้เสียงไม่อ่านสะดุด
+    window.speechSynthesis.cancel(); 
     const cleanText = text.replace(/[*#-_]/g, "").trim();
     const msg = new SpeechSynthesisUtterance(cleanText);
     msg.lang = 'th-TH';
 
-    // เลือกเสียงภาษาไทย
     const voices = window.speechSynthesis.getVoices();
     const thaiVoice = voices.find(v => v.lang === 'th-TH' && v.name.includes('Google')) || 
                       voices.find(v => v.lang === 'th-TH');
     
     if (thaiVoice) msg.voice = thaiVoice;
-    msg.rate = 1.1; // ความเร็วในการพูด
+    msg.rate = 1.1;
 
-    // เมื่อพูดจบให้กลับเป็นท่าทางปกติ
     msg.onend = () => updateLottie('idle');
 
-    // ต้องใช้ Timeout เล็กน้อยเพื่อให้เบราว์เซอร์มือถือยอมรับ
     setTimeout(() => {
         window.speechSynthesis.speak(msg);
     }, 200);
 }
 
-// 6. ฟังก์ชันเปลี่ยนท่าทาง Lottie
+// 6. ฟังก์ชันเปลี่ยนท่าทาง Lottie (ดึง URL จากฐานข้อมูล JSON)
 function updateLottie(state) {
-    const player = document.querySelector('lottie-player');
+    const player = document.querySelector('lottie-player') || document.getElementById('lottie-canvas');
     if (!player) return;
 
-    // ถ้าฐานข้อมูลโหลดมาแล้ว ให้ดึง URL จาก Sheet
     if (localDatabase && localDatabase["Lottie_State"]) {
         const data = localDatabase["Lottie_State"];
+        // ค้นหาแถวที่มีชื่อ State ตรงกัน
         const match = data.find(row => row[0].toString().toLowerCase() === state.toLowerCase());
-        if (match) {
+        
+        if (match && match[1] && match[1].includes('http')) {
+            // โหลด URL ใหม่ (ต้องเป็นลิงก์ .json ตรงๆ)
             player.load(match[1]);
             return;
         }
     }
     
-    // ถ้ายังโหลดฐานข้อมูลไม่เสร็จ ให้ขยับความเร็วแทน
+    // ถ้าหาในฐานข้อมูลไม่เจอ ให้ปรับความเร็วแทน
     state === 'talking' ? player.setSpeed(1.5) : player.setSpeed(1.0);
 }
 
-// เริ่มต้นโหลดฐานข้อมูล
+// เริ่มต้นโหลดฐานข้อมูลเมื่อเปิดหน้าเว็บ
 initDatabase();
