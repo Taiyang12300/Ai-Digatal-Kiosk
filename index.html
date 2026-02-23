@@ -131,25 +131,57 @@
     }
 
     function speak(text) {
+  // 1. ล้างคิวเดิม
   window.speechSynthesis.cancel();
-  const msg = new SpeechSynthesisUtterance(text.replace(/[*#-]/g, ""));
-  
-  // เพิ่มส่วนนี้เพื่อค้นหาเสียงภาษาไทยที่ "นุ่มนวล"
+
+  // 2. จัดการข้อความ (ลบสัญลักษณ์พิเศษ)
+  const cleanText = text.replace(/[*#-]/g, "").trim();
+  if (!cleanText) return;
+
+  const msg = new SpeechSynthesisUtterance(cleanText);
+  msg.lang = 'th-TH';
+
+  // 3. ฟังก์ชันเลือกเสียง (แบบตรวจสอบความปลอดภัย)
   const voices = window.speechSynthesis.getVoices();
-  const thaiVoice = voices.find(v => v.lang === 'th-TH' && (v.name.includes('Google') || v.name.includes('Premium')));
   
-  if (thaiVoice) {
-    msg.voice = thaiVoice; // ถ้าเจอเสียง Google หรือ Premium ให้ใช้เสียงนั้น
+  // พยายามหาเสียง Google หรือ Premium ก่อน
+  let selectedVoice = voices.find(v => v.lang === 'th-TH' && (v.name.includes('Google') || v.name.includes('Premium')));
+  
+  // ถ้าไม่เจอจริงๆ ให้เอาเสียงภาษาไทยตัวแรกที่มีในเครื่อง
+  if (!selectedVoice) {
+    selectedVoice = voices.find(v => v.lang === 'th-TH');
   }
 
-  msg.lang = 'th-TH';
-  msg.rate = 1.0; // ปรับความเร็ว (0.1 - 10) ลองลดเหลือ 0.9 ถ้าอยากให้ฟังชัดขึ้น
-  msg.pitch = 1.0; // ปรับระดับเสียงสูงต่ำ
-  
-  msg.onend = () => { updateLottie('idle'); };
+  // ถ้าเจอเสียงที่เหมาะสม ให้เลือกใช้ (ถ้าไม่เจอเลย ระบบจะใช้ Default ให้เอง)
+  if (selectedVoice) {
+    msg.voice = selectedVoice;
+    console.log("ใช้น้ำเสียง: " + selectedVoice.name);
+  }
+
+  // 4. ตั้งค่าความเร็วและระดับเสียง
+  msg.rate = 1.0; 
+  msg.pitch = 1.0; 
+  msg.volume = 1.0; // มั่นใจว่าระดับเสียงเต็ม 100%
+
+  // 5. เหตุการณ์เมื่อจบเสียง
+  msg.onend = () => { 
+    console.log("พูดจบแล้ว");
+    updateLottie('idle'); 
+  };
+
+  msg.onerror = (e) => {
+    console.error("เกิดข้อผิดพลาดในการเล่นเสียง:", e);
+    updateLottie('idle');
+  };
+
+  // 6. สั่งพูด
   window.speechSynthesis.speak(msg);
 }
 
+// *** เพิ่มส่วนนี้เพื่อแก้ปัญหาโครมโหลดเสียงไม่ทัน ***
+window.speechSynthesis.onvoiceschanged = () => {
+  window.speechSynthesis.getVoices();
+};
 
     window.onload = () => { updateLottie('idle'); };
   </script>
