@@ -65,25 +65,31 @@ async function getResponse(userQuery, category) {
         displayResponse("กรุณารอสักครู่ น้องนำทางกำลังเตรียมข้อมูลค่ะ...");
         return;
     }
-    // ส่งข้อมูลแบบ Background ไปยัง GAS_URL ที่เราเตรียมไว้รับค่า query
+
+    // บันทึกคำถามลงคอลัมน์ B (ตามที่ทำไว้)
     try {
         fetch(`${GAS_URL}?action=logOnly&query=${encodeURIComponent(userQuery)}`, { mode: 'no-cors' });
-    } catch (e) {
-        console.log("Log error:", e);
-    }
-    // -------------------------------------------------------
+    } catch (e) { console.log("Log error:", e); }
+
     const query = userQuery.toLowerCase().trim();
     let bestMatch = { answer: "", score: 0 };
 
-    // ค้นหาในหมวดที่เลือก และหมวดเสริม (KnowledgeBase)
-    const targets = [category, "KnowledgeBase"];
+    // --- แก้ไขตรงนี้: ถ้าส่ง 'ANY' มา ให้ค้นหาในทุกหมวดที่มีในฐานข้อมูล ---
+    let targets = [];
+    if (category === 'ANY') {
+        // ดึงชื่อชีตทั้งหมดที่มีใน database มาค้นหา (ยกเว้นชีตระบบ)
+        targets = Object.keys(localDatabase).filter(name => name !== "Lottie_State" && name !== "FAQ");
+    } else {
+        // ถ้าระบุหมวดมา (เช่น กดจาก Tab) ให้หาแค่หมวดนั้นและ KnowledgeBase
+        targets = [category, "KnowledgeBase"];
+    }
+    // -----------------------------------------------------------
 
     targets.forEach(cat => {
         if (localDatabase[cat]) {
             const data = localDatabase[cat]; 
-            // โครงสร้าง JSON ของคุณคือ [ [คำถาม1, คำตอบ1, สถานะ], [คำถาม2, คำตอบ2] ]
             data.forEach((row, index) => {
-                if (index === 0 && row[0] === "คำถาม") return; // ข้ามหัวตาราง
+                if (index === 0) return; // ข้ามหัวตาราง
 
                 const key = row[0] ? row[0].toString().toLowerCase().trim() : "";
                 const ans = row[1] ? row[1].toString().trim() : "";
@@ -91,11 +97,9 @@ async function getResponse(userQuery, category) {
                 if (!key || !ans) return;
 
                 let score = 0;
-                // ตรวจสอบว่าคำถามมีคำที่ระบุไหม (Keyword Match)
                 if (query.includes(key) || key.includes(query)) {
                     score = 0.95; 
                 } else {
-                    // ถ้าไม่ตรงเป๊ะ ให้ใช้ Fuzzy Search
                     score = calculateSimilarity(query, key);
                 }
 
@@ -105,6 +109,18 @@ async function getResponse(userQuery, category) {
             });
         }
     });
+
+    if (bestMatch.score >= 0.40) {
+        updateLottie('talking');
+        displayResponse(bestMatch.answer);
+        speak(bestMatch.answer);
+    } else {
+        const fallback = "ขออภัยค่ะ น้องนำทางยังไม่มีข้อมูลเรื่องนี้ในระบบ กรุณาสอบถามเจ้าหน้าที่ประชาสัมพันธ์นะคะ";
+        displayResponse(fallback);
+        speak(fallback);
+    }
+}
+
 
     // แสดงผล (ใช้เกณฑ์ความเหมือน 40% ขึ้นไป)
     if (bestMatch.score >= 0.40) {
