@@ -143,14 +143,25 @@ function updateLottie(state) {
     const player = document.getElementById('lottie-canvas');
     if (!player) return;
 
-    // ถ้าคุณต้องการดึง URL จาก Sheet ให้ใช้ fetch เพิ่มเติม 
-    // แต่เบื้องต้นระบบจะจัดการผ่านการขยับ Speed หรือ Loop
+    // ค้นหา URL จาก localDatabase ใน Sheet "Lottie_State" (ถ้าคุณดึงมาแล้ว)
+    if (localDatabase && localDatabase["Lottie_State"]) {
+        const data = localDatabase["Lottie_State"];
+        for (let i = 1; i < data.length; i++) {
+            if (data[i][0].toString().toLowerCase() === state.toLowerCase()) {
+                player.load(data[i][1]); // โหลด URL ใหม่เข้าเครื่องเล่น
+                return;
+            }
+        }
+    }
+    
+    // ถ้าหาใน Sheet ไม่เจอ ให้ทำงานตามเงื่อนไขพื้นฐาน
     if (state === 'talking') {
         player.setSpeed(1.5);
     } else {
         player.setSpeed(1.0);
     }
 }
+
 
 // เริ่มต้นโหลดฐานข้อมูล
 initDatabase();
