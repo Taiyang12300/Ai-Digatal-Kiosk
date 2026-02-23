@@ -18,7 +18,7 @@ async function initDatabase() {
             // เปลี่ยนข้อความต้อนรับเมื่อโหลดข้อมูลเสร็จ
             const welcomeBox = document.getElementById('response-text') || document.getElementById('output');
             if (welcomeBox) {
-                welcomeBox.innerText = "โหลดข้อมูลเสร็จแล้วค่ะ พร้อมให้บริการแล้วนะคะ!";
+                welcomeBox.innerText = "สอบถามข้อมูลกดที่ปุ่มไมค์ได้เลยค่ะ";
             }
             // อัปเดต Lottie เป็นท่าทางปกติ
             updateLottie('idle');
