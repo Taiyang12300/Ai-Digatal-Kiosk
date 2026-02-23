@@ -130,25 +130,13 @@
       animation = lottie.loadAnimation({ container: document.getElementById('lottie-view'), renderer: 'svg', loop: true, autoplay: true, path: url });
     }
 
-        function speak(text) {
-  window.speechSynthesis.cancel();
-  const msg = new SpeechSynthesisUtterance(text.replace(/[*#-]/g, ""));
-  
-  // เพิ่มส่วนนี้เพื่อค้นหาเสียงภาษาไทยที่ "นุ่มนวล"
-  const voices = window.speechSynthesis.getVoices();
-  const thaiVoice = voices.find(v => v.lang === 'th-TH' && (v.name.includes('Google') || v.name.includes('Premium')));
-  
-  if (thaiVoice) {
-    msg.voice = thaiVoice; // ถ้าเจอเสียง Google หรือ Premium ให้ใช้เสียงนั้น
-  }
-
-  msg.lang = 'th-TH';
-  msg.rate = 1.0; // ปรับความเร็ว (0.1 - 10) ลองลดเหลือ 0.9 ถ้าอยากให้ฟังชัดขึ้น
-  msg.pitch = 1.0; // ปรับระดับเสียงสูงต่ำ
-  
-  msg.onend = () => { updateLottie('idle'); };
-  window.speechSynthesis.speak(msg);
-}
+     function speak(text) {
+      window.speechSynthesis.cancel();
+      const msg = new SpeechSynthesisUtterance(text.replace(/[*#-]/g, ""));
+      msg.lang = 'th-TH';
+      msg.onend = () => { google.script.run.withSuccessHandler(url => playAni(url)).getLottieUrl('idle'); };
+      window.speechSynthesis.speak(msg);
+    }
     window.onload = () => { updateLottie('idle'); };
   </script>
 </body>
