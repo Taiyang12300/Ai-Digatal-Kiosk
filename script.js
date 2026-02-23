@@ -121,12 +121,27 @@ function displayResponse(text) {
 }
 
 function speak(text) {
-      window.speechSynthesis.cancel();
-      const msg = new SpeechSynthesisUtterance(text.replace(/[*#-]/g, ""));
-      msg.lang = 'th-TH';
-      msg.onend = () => { google.script.run.withSuccessHandler(url => playAni(url)).getLottieUrl('idle'); };
-      window.speechSynthesis.speak(msg);
-    }
+    // 1. หยุดเสียงเก่าทันที
+    window.speechSynthesis.cancel(); 
+
+    // 2. ใช้การจัดการข้อความแบบน้อยที่สุด (ตามโค้ดที่คุณส่งมาว่าใช้ได้)
+    const cleanText = text.replace(/[*#-]/g, ""); 
+    const msg = new SpeechSynthesisUtterance(cleanText);
+    msg.lang = 'th-TH';
+
+    // 3. เมื่อเริ่มพูดให้เปลี่ยนท่าทางเป็น 'talking'
+    msg.onstart = () => {
+        updateLottie('talking');
+    };
+
+    // 4. เมื่อพูดจบให้กลับเป็นท่าทางปกติ 'idle'
+    msg.onend = () => {
+        updateLottie('idle');
+    };
+
+    // 5. สั่งให้พูดทันที (แบบโค้ดเก่าที่คุณใช้)
+    window.speechSynthesis.speak(msg);
+}
 
 // 6. ฟังก์ชันเปลี่ยนท่าทาง Lottie (ดึง URL จากฐานข้อมูล JSON)
 function updateLottie(state) {
