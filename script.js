@@ -120,23 +120,32 @@ function displayResponse(text) {
     }
 }
 
+// ฟังก์ชันไม้ตาย: แปลงตัวเลขเป็นคำอ่านภาษาไทย
+function forceThaiNumber(text) {
+    const thaiNumbers = ['ศูนย์', 'หนึ่ง', 'สอง', 'สาม', 'สี่', 'ห้า', 'หก', 'เจ็ด', 'แปด', 'เก้า'];
+    return text.replace(/\d/g, (digit) => " " + thaiNumbers[parseInt(digit)] + " ");
+}
+
 function speak(text) {
     window.speechSynthesis.cancel(); 
     
-    // 1. ล้างอักขระพิเศษและจัดการตัวเลข
+    // 1. จัดการข้อความเบื้องต้น
     let cleanText = text
-        .replace(/[\u200B-\u200D\uFEFF\u00A0]/g, "") // ล้าง "ช่องว่างที่มองไม่เห็น" ทั้งหมดออก
-        .replace(/[*#-_]/g, " ")                    // ล้างสัญลักษณ์พิเศษ
-        .replace(/(\d+)/g, " $1 ")                  // เว้นวรรคหน้า-หลังตัวเลขให้ชัดเจน
-        .replace(/\(/g, " ")                        // ล้างวงเล็บเปิด
-        .replace(/\)/g, " ")                        // ล้างวงเล็บปิด
-        .trim();
+        .replace(/[*#-_]/g, " ")
+        .replace(/\(/g, " , ") // เปลี่ยนวงเล็บเป็นเครื่องหมายคอมม่าเพื่อให้เว้นจังหวะ
+        .replace(/\)/g, " , ");
 
-    // 2. สร้างคำสั่งเสียง
+    // 2. แปลงคำย่อที่พบบ่อย
+    cleanText = cleanText.replace(/ชม\./g, " ชั่วโมง ");
+    cleanText = cleanText.replace(/น\./g, " นาฬิกา ");
+
+    // 3. บังคับเปลี่ยนตัวเลขเป็นคำอ่าน (ไม้ตาย)
+    cleanText = forceThaiNumber(cleanText);
+
     const msg = new SpeechSynthesisUtterance(cleanText);
     msg.lang = 'th-TH';
 
-    // 3. เลือกเสียงภาษาไทยที่ฉลาดที่สุด
+    // 4. เลือกเสียงที่เสถียรที่สุด
     const voices = window.speechSynthesis.getVoices();
     const thaiVoice = voices.find(v => v.lang === 'th-TH' && v.name.includes('Google')) || 
                       voices.find(v => v.lang === 'th-TH');
@@ -146,14 +155,13 @@ function speak(text) {
     msg.rate = 1.0; 
     msg.pitch = 1.0;
 
+    msg.onstart = () => updateLottie('talking');
     msg.onend = () => updateLottie('idle');
 
-    // สำหรับมือถือ/แท็บเล็ต ต้องใช้ Delay เล็กน้อย
     setTimeout(() => {
         window.speechSynthesis.speak(msg);
     }, 250);
 }
-
 
 // 6. ฟังก์ชันเปลี่ยนท่าทาง Lottie (ดึง URL จากฐานข้อมูล JSON)
 function updateLottie(state) {
