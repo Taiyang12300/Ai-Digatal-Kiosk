@@ -66,57 +66,55 @@ async function getResponse(userQuery, category) {
         return;
     }
 
-    // 1. บันทึกคำถามลงคอลัมน์ B (ส่งแบบดีเลย์ 0.5 วินาที เพื่อไม่ให้ขวางจังหวะเสียงพูด)
-    setTimeout(() => {
-        fetch(`${GAS_URL}?action=logOnly&query=${encodeURIComponent(userQuery)}`, { mode: 'no-cors' });
-    }, 500);
+    // 1. บันทึกคำถามลงคอลัมน์ B (ส่งแบบเงียบๆ ไม่ต้องรอผล)
+    fetch(`${GAS_URL}?action=logOnly&query=${encodeURIComponent(userQuery)}`, { mode: 'no-cors' }).catch(e => {});
 
     const query = userQuery.toLowerCase().trim();
     let bestMatch = { answer: "", score: 0 };
-    let foundExact = false; // ตัวช่วยประหยัดเวลาค้นหา
 
-    // 2. กำหนดเป้าหมายการค้นหา
-    let targets = [];
-    if (category === 'ANY' || category === 'KnowledgeBase') {
-        targets = Object.keys(localDatabase).filter(name => 
-            name !== "Lottie_State" && name !== "FAQ" && name !== "Setting"
-        );
-    } else {
-        targets = [category, "KnowledgeBase"];
-    }
+    // 2. ค้นหาเฉพาะหมวดที่เลือก และ KnowledgeBase เท่านั้น (ช่วยให้เร็วขึ้นมาก)
+    const targets = [category, "KnowledgeBase"];
 
-    // 3. เริ่มการค้นหาแบบ Efficient Search
-    for (const cat of targets) {
-        if (foundExact) break; // ถ้าเจอคำตอบที่ตรงเป๊ะจากหมวดก่อนหน้าแล้ว ให้หยุดหาทันที
-
+    targets.forEach(cat => {
         if (localDatabase[cat]) {
             const data = localDatabase[cat]; 
-            
-            for (let i = 1; i < data.length; i++) {
-                const row = data[i];
+            // โครงสร้าง: [ [คำถาม1, คำตอบ1], [คำถาม2, คำตอบ2] ]
+            data.forEach((row, index) => {
+                if (index === 0) return; // ข้ามหัวตาราง
+
                 const key = row[0] ? row[0].toString().toLowerCase().trim() : "";
                 const ans = row[1] ? row[1].toString().trim() : "";
 
-                if (!key || !ans) continue;
+                if (!key || !ans) return;
 
                 let score = 0;
-                // ตรวจสอบ Keyword Match (เจอแล้วให้คะแนนเต็มและหยุดหา)
+                // ตรวจสอบคีย์เวิร์ด (Keyword Match)
                 if (query.includes(key) || key.includes(query)) {
-                    score = 0.99;
-                    foundExact = true;
+                    score = 0.95; 
                 } else {
-                    // ถ้าไม่ตรงเป๊ะ ค่อยใช้ Fuzzy Search คำนวณความเหมือน
+                    // ถ้าไม่ตรงเป๊ะ ใช้ Fuzzy Search
                     score = calculateSimilarity(query, key);
                 }
 
                 if (score > bestMatch.score) {
                     bestMatch = { answer: ans, score: score };
                 }
-                
-                if (foundExact) break; // เจอคำตอบที่ดีที่สุดในชีตนี้แล้ว หยุดวนลูปแถว
-            }
+            });
         }
+    });
+
+    // 3. แสดงผล (ใช้เกณฑ์ 40% ขึ้นไป)
+    if (bestMatch.score >= 0.40) {
+        updateLottie('talking');
+        displayResponse(bestMatch.answer);
+        speak(bestMatch.answer);
+    } else {
+        const fallback = "ขออภัยค่ะ น้องนำทางยังไม่มีข้อมูลเรื่องนี้ในระบบ กรุณาสอบถามเจ้าหน้าที่ประชาสัมพันธ์นะคะ";
+        displayResponse(fallback);
+        speak(fallback);
     }
+}
+
 
     // 4. แสดงผลและสั่งงานเสียง
     if (bestMatch.score >= 0.40) {
@@ -186,31 +184,27 @@ function updateLottie(state) {
 
 // ฟังก์ชันสร้างปุ่มจากชีต FAQ คอลัมน์ A
 function renderFAQButtons() {
-    if (!localDatabase || !localDatabase["FAQ"]) return;
-
     const container = document.getElementById('faq-container');
-    if (!container) return;
-
-    container.innerHTML = ""; // ล้างปุ่มเก่าก่อน
-
-    const faqData = localDatabase["FAQ"];
+    if (!container || !localDatabase || !localDatabase["FAQ"]) return;
     
-    // วนลูปดึงข้อมูลจากแถวที่ 2 เป็นต้นไป (ข้ามหัวตาราง)
-    for (let i = 1; i < faqData.length; i++) {
-        const buttonText = faqData[i][0]; // ดึงข้อมูลเฉพาะคอลัมน์ A (index 0)
+    container.innerHTML = "";
+    
+    localDatabase["FAQ"].forEach((row, index) => {
+        if (index === 0 || !row[0]) return; // ข้ามหัวตารางและแถวว่าง
+        
+        const btn = document.createElement('button');
+        btn.className = 'faq-btn';
+        btn.innerText = row[0];
 
-        if (buttonText && buttonText.toString().trim() !== "") {
-            const btn = document.createElement('button');
-            btn.className = 'faq-btn';
-            btn.innerText = buttonText;
-            
-            // เมื่อกดปุ่ม ให้ส่งข้อความบนปุ่มไปค้นหาคำตอบในฐานข้อมูลหลัก
-            btn.onclick = () => {
-                getResponse(buttonText, 'ANY');
-            };
-            container.appendChild(btn);
-        }
-    }
+        // *** จุดสำคัญ: สั่งให้ทำงานเหมือนการพิมพ์ถาม หรือพูดถาม ***
+        btn.onclick = () => {
+            // ส่งข้อความบนปุ่มเข้าสู่ฟังก์ชันหลัก processQuery 
+            // ซึ่งจะไปเรียก getResponse ตามหมวดหมู่ที่เลือกไว้อยู่แล้ว
+            processQuery(row[0]); 
+        };
+        
+        container.appendChild(btn);
+    });
 }
 
 // เริ่มต้นโหลดฐานข้อมูลเมื่อเปิดหน้าเว็บ
