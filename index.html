@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Digital Kiosk - GitHub Mode</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
+  <style>
+    /* ใช้ CSS เดิมของคุณที่นี่ */
+    :root { --primary: #6c5ce7; --bg: #f9f9fb; --accent: #ff7675; }
+    body { font-family: 'Sarabun', sans-serif; background: var(--bg); margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; }
+    #lottie-view { width: 160px; height: 160px; background: white; border-radius: 50%; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+    .display-box { background: white; border-radius: 20px; padding: 20px; width: 90%; max-width: 450px; min-height: 80px; margin: 15px 0; }
+    .btn-mic { width: 80px; height: 80px; border-radius: 50%; border: none; background: var(--primary); color: white; font-size: 35px; cursor: pointer; }
+    .btn-mic.recording { background: var(--accent); animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0% { transform: scale(1); } 70% { transform: scale(1.1); box-shadow: 0 0 0 15px rgba(255, 118, 117, 0); } 100% { transform: scale(1); } }
+  </style>
+</head>
+<body>
+
+  <div id="lottie-view"></div>
+  <div class="display-box" id="output">ระบบพร้อมแล้วค่ะ แตะไมค์เพื่อเริ่มคุยได้เลย</div>
+  
+  <div style="text-align: center; margin-bottom: 20px;">
+    <button id="micBtn" class="btn-mic" onclick="toggleListening()"><i class="fas fa-microphone"></i></button>
+    <p id="statusText">แตะไมค์เพื่อพูด</p>
+  </div>
+
+  <script>
+    // ใส่ลิงก์ GAS ของคุณที่นี่เพื่อเป็น API
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbw4w8mgZEqp9WmASPS__Bprway9cVZeCdb6PZlIQ5Iz2VBlfQAYwfaLY.../exec";
+
+    let recognition, isListening = false;
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (SpeechRecognition) {
+      recognition = new SpeechRecognition();
+      recognition.lang = 'th-TH';
+      recognition.onstart = () => { isListening = true; document.getElementById('micBtn').classList.add('recording'); };
+      recognition.onresult = (e) => {
+        const text = e.results[0][0].transcript;
+        document.getElementById('output').innerText = "คุณพูดว่า: " + text;
+        // ส่งข้อความไปให้ Google Script ประมวลผล
+        fetch(GAS_URL + "?query=" + encodeURIComponent(text))
+          .then(res => res.json())
+          .then(data => {
+            document.getElementById('output').innerText = data.answer;
+            speak(data.answer);
+          });
+      };
+      recognition.onend = () => { isListening = false; document.getElementById('micBtn').classList.remove('recording'); };
+    }
+
+    function toggleListening() {
+      if (isListening) recognition.stop();
+      else {
+        window.speechSynthesis.speak(new SpeechSynthesisUtterance("")); // ปลุกเสียง
+        recognition.start();
+      }
+    }
+
+    function speak(text) {
+      const msg = new SpeechSynthesisUtterance(text);
+      msg.lang = 'th-TH';
+      window.speechSynthesis.speak(msg);
+    }
+  </script>
+</body>
+</html>
