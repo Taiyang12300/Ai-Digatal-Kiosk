@@ -123,16 +123,26 @@ function displayResponse(text) {
 // 5. ฟังก์ชันเสียงพูด (รองรับ Android/iOS)
 function speak(text) {
     window.speechSynthesis.cancel(); 
-    const cleanText = text.replace(/[*#-_]/g, "").trim();
+    
+    // 1. เตรียมข้อความให้อ่านง่ายขึ้น
+    let cleanText = text
+        .replace(/[*#-_]/g, " ")     // เปลี่ยนสัญลักษณ์เป็นช่องว่าง
+        .replace(/(\d+)/g, " $1 ")   // เว้นวรรคหน้า-หลังตัวเลข เพื่อให้ระบบแยกตัวเลขออกมาชัดเจน
+        .replace(/\./g, " จุด ")      // ถ้ามีจุดทศนิยม ให้เปลี่ยนเป็นคำว่า "จุด" (หรือ "นาฬิกา" สำหรับเวลา)
+        .trim();
+
     const msg = new SpeechSynthesisUtterance(cleanText);
     msg.lang = 'th-TH';
 
+    // 2. บังคับใช้เสียง Google (ถ้ามี) เพราะอ่านตัวเลขแม่นกว่า
     const voices = window.speechSynthesis.getVoices();
-    const thaiVoice = voices.find(v => v.lang === 'th-TH' && v.name.includes('Google')) || 
+    const thaiVoice = voices.find(v => v.name.includes('Google') && v.lang === 'th-TH') || 
                       voices.find(v => v.lang === 'th-TH');
     
     if (thaiVoice) msg.voice = thaiVoice;
-    msg.rate = 1.1;
+    
+    msg.rate = 1.0;  // ปรับความเร็วให้ช้าลงเล็กน้อยเพื่อให้ฟังตัวเลขทัน
+    msg.pitch = 1.0;
 
     msg.onend = () => updateLottie('idle');
 
@@ -140,6 +150,7 @@ function speak(text) {
         window.speechSynthesis.speak(msg);
     }, 200);
 }
+
 
 // 6. ฟังก์ชันเปลี่ยนท่าทาง Lottie (ดึง URL จากฐานข้อมูล JSON)
 function updateLottie(state) {
