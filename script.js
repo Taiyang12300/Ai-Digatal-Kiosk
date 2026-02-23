@@ -1,5 +1,10 @@
+/**
+ * สมองกลน้องนำทาง - ฉบับสมบูรณ์ (Hybrid Search)
+ * ทำงานบนเครื่องผู้ใช้ 100% เสถียรทั้งคอมและมือถือ
+ */
+
 let localDatabase = null;
-const GAS_URL = "https://script.google.com/macros/s/AKfycbx2nrJ9FDn6m4azBvQycHM57rBfrZWMwwcBuejvb1m912r7ijAd6AOvFUxjqR7VClV3Rg/exec"; 
+const GAS_URL = "https://script.google.com/macros/s/AKfycbx2nrJ9FDn6m4azBvQycHM57rBfrZWMwwcBuejvb1m912r7ijAd6AOvFUxjqR7VClV3Rg/exec"; // *** อย่าลืมเปลี่ยนเป็นลิงก์ Web App ของคุณ ***
 
 // 1. โหลดคลังข้อมูลทันทีที่เปิดหน้าเว็บ
 async function initDatabase() {
@@ -9,13 +14,17 @@ async function initDatabase() {
         if (json.database) {
             localDatabase = json.database;
             console.log("น้องนำทาง: คลังข้อมูลพร้อมใช้งาน (รันระบบพึ่งพาตัวเอง)");
+            // ถ้ามีข้อความต้อนรับในหน้าเว็บ ให้แสดงผลเมื่อโหลดเสร็จ
+            if(document.getElementById('response-text')) {
+                console.log("Database Sync: Success");
+            }
         }
     } catch (e) {
         console.error("Database Load Error:", e);
     }
 }
 
-// 2. ฟังก์ชันคำนวณความเหมือน (Fuzzy Matching) - ช่วยให้พิมพ์ผิดก็ยังหาเจอ
+// 2. ฟังก์ชันคำนวณความเหมือน (Fuzzy Matching)
 function calculateSimilarity(s1, s2) {
     let longer = s1.toLowerCase().trim();
     let shorter = s2.toLowerCase().trim();
@@ -65,14 +74,12 @@ async function getResponse(userQuery, category) {
 
             for (let i = 0; i < keywords.length; i++) {
                 const key = keywords[i].toString().toLowerCase().trim();
-                if (!key) continue;
+                if (!key || key === "คำถาม") continue; // ข้ามหัวตาราง
 
                 let score = 0;
-                // ถ้ามีคำสำคัญอยู่ในประโยค (Keyword Match)
                 if (query.includes(key) || key.includes(query)) {
-                    score = 0.9; 
+                    score = 0.95; 
                 } else {
-                    // ถ้าไม่ตรงเป๊ะ ให้คำนวณความเหมือน (Fuzzy Match)
                     score = calculateSimilarity(query, key);
                 }
 
@@ -83,7 +90,6 @@ async function getResponse(userQuery, category) {
         }
     });
 
-    // แสดงผล (เกณฑ์คะแนน 0.45 คือความเหมือนที่ยอมรับได้)
     if (bestMatch.score >= 0.45) {
         updateLottie('talking');
         displayResponse(bestMatch.answer);
@@ -92,6 +98,57 @@ async function getResponse(userQuery, category) {
         const fallback = "ขออภัยค่ะ น้องนำทางยังไม่มีข้อมูลเรื่องนี้ในระบบ กรุณาสอบถามเจ้าหน้าที่ประชาสัมพันธ์นะคะ";
         displayResponse(fallback);
         speak(fallback);
+    }
+}
+
+// 4. ฟังก์ชันแสดงข้อความบนหน้าจอ
+function displayResponse(text) {
+    const box = document.getElementById('response-text');
+    if (box) {
+        box.innerText = text;
+        // เอฟเฟกต์ Fade In
+        box.style.opacity = 0;
+        setTimeout(() => { box.style.opacity = 1; }, 50);
+    }
+}
+
+// 5. ฟังก์ชันเสียงพูด (รองรับมือถือ)
+function speak(text) {
+    window.speechSynthesis.cancel(); // หยุดเสียงเก่าก่อน
+    
+    // ลบสัญลักษณ์พิเศษเพื่อให้เสียงไม่อ่านสะดุด
+    const cleanText = text.replace(/[*#-_]/g, "").trim();
+    const msg = new SpeechSynthesisUtterance(cleanText);
+    msg.lang = 'th-TH';
+
+    // เลือกเสียงภาษาไทย
+    const voices = window.speechSynthesis.getVoices();
+    const thaiVoice = voices.find(v => v.lang === 'th-TH' && v.name.includes('Google')) || 
+                      voices.find(v => v.lang === 'th-TH');
+    
+    if (thaiVoice) msg.voice = thaiVoice;
+    msg.rate = 1.1; // ความเร็วในการพูด
+
+    // เมื่อพูดจบให้กลับเป็นท่าทางปกติ
+    msg.onend = () => updateLottie('idle');
+
+    // ต้องใช้ Timeout เล็กน้อยเพื่อให้เบราว์เซอร์มือถือยอมรับ
+    setTimeout(() => {
+        window.speechSynthesis.speak(msg);
+    }, 200);
+}
+
+// 6. ฟังก์ชันเปลี่ยนท่าทาง Lottie
+function updateLottie(state) {
+    const player = document.getElementById('lottie-canvas');
+    if (!player) return;
+
+    // ถ้าคุณต้องการดึง URL จาก Sheet ให้ใช้ fetch เพิ่มเติม 
+    // แต่เบื้องต้นระบบจะจัดการผ่านการขยับ Speed หรือ Loop
+    if (state === 'talking') {
+        player.setSpeed(1.5);
+    } else {
+        player.setSpeed(1.0);
     }
 }
 
