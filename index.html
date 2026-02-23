@@ -3,53 +3,61 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Digital Kiosk - GitHub Mode</title>
+  <title>AI Digital Kiosk</title>
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
   <style>
-    /* ใช้ CSS เดิมของคุณที่นี่ */
+    /* นำ CSS เดิมของคุณกลับมาทั้งหมดเพื่อให้หน้าจอสวยเหมือนเดิม */
     :root { --primary: #6c5ce7; --bg: #f9f9fb; --accent: #ff7675; }
     body { font-family: 'Sarabun', sans-serif; background: var(--bg); margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; }
-    #lottie-view { width: 160px; height: 160px; background: white; border-radius: 50%; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
-    .display-box { background: white; border-radius: 20px; padding: 20px; width: 90%; max-width: 450px; min-height: 80px; margin: 15px 0; }
-    .btn-mic { width: 80px; height: 80px; border-radius: 50%; border: none; background: var(--primary); color: white; font-size: 35px; cursor: pointer; }
+    #lottie-view { width: 160px; height: 160px; margin-bottom: 10px; border-radius: 50%; background: white; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+    .display-box { background: white; border-radius: 20px; padding: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); width: 90%; max-width: 450px; min-height: 80px; font-size: 18px; margin-bottom: 15px; color: #2d3436; }
+    .input-group { width: 90%; max-width: 450px; display: flex; gap: 8px; margin-bottom: 15px; }
+    #userInput { flex: 1; padding: 12px 20px; border-radius: 25px; border: 2px solid #ddd; font-family: 'Sarabun'; outline: none; }
+    .btn-send { width: 45px; height: 45px; border-radius: 50%; border: none; background: var(--primary); color: white; cursor: pointer; }
+    .btn-mic { width: 80px; height: 80px; border-radius: 50%; border: none; background: var(--primary); color: white; font-size: 35px; cursor: pointer; transition: 0.3s; }
     .btn-mic.recording { background: var(--accent); animation: pulse 1.5s infinite; }
+    .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 90%; max-width: 450px; }
+    .btn-cat { padding: 12px; border: none; border-radius: 12px; background: white; color: var(--primary); border: 2px solid var(--primary); font-size: 14px; cursor: pointer; font-weight: 500; }
+    .btn-cat.active { background: var(--primary); color: white; }
     @keyframes pulse { 0% { transform: scale(1); } 70% { transform: scale(1.1); box-shadow: 0 0 0 15px rgba(255, 118, 117, 0); } 100% { transform: scale(1); } }
   </style>
 </head>
 <body>
 
   <div id="lottie-view"></div>
-  <div class="display-box" id="output">ระบบพร้อมแล้วค่ะ แตะไมค์เพื่อเริ่มคุยได้เลย</div>
+  <div class="display-box" id="output">ยินดีต้อนรับสู่ GitHub Pages ค่ะ แตะไมค์เพื่อพูดนะคะ</div>
+
+  <div class="input-group">
+    <input type="text" id="userInput" placeholder="พิมพ์คำถามที่นี่..." onkeypress="if(event.key==='Enter') sendText()">
+    <button class="btn-send" onclick="sendText()"><i class="fas fa-paper-plane"></i></button>
+  </div>
   
   <div style="text-align: center; margin-bottom: 20px;">
     <button id="micBtn" class="btn-mic" onclick="toggleListening()"><i class="fas fa-microphone"></i></button>
-    <p id="statusText">แตะไมค์เพื่อพูด</p>
+    <p id="statusText" style="margin-top:10px; color: #636e72; font-size: 14px;">แตะไมค์เพื่อพูด</p>
+  </div>
+
+  <div class="tabs">
+    <button class="btn-cat active" id="btn1" onclick="setCategory('งานใบอนุญาตขับรถ', 'btn1')">ใบอนุญาตขับรถ</button>
+    <button class="btn-cat" id="btn2" onclick="setCategory('งานทะเบียนรถ', 'btn2')">ทะเบียนรถ</button>
+    <button class="btn-cat" id="btn3" onclick="setCategory('งานตรวจสภาพรถ', 'btn3')">ตรวจสภาพรถ</button>
+    <button class="btn-cat" id="btn4" onclick="setCategory('งานใบอนุญาตประกอบการ', 'btn4')">ประกอบการ</button>
   </div>
 
   <script>
-    // ใส่ลิงก์ GAS ของคุณที่นี่เพื่อเป็น API
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbw4w8mgZEqp9WmASPS__Bprway9cVZeCdb6PZlIQ5Iz2VBlfQAYwfaLY.../exec";
+    // *** สำคัญ: นำลิงก์ Web App (URL จาก Apps Script) ของคุณมาใส่ตรงนี้ ***
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwxs1OPM6YhBTM36-AufJBzWjNWTqGNdKFnKvBsh_BVOkg0_ZNReoMjo0vwrzZJqZNbFw/exec";
 
-    let recognition, isListening = false;
+    let animation, currentCategory = 'งานใบอนุญาตขับรถ', recognition, isListening = false;
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if (SpeechRecognition) {
       recognition = new SpeechRecognition();
       recognition.lang = 'th-TH';
       recognition.onstart = () => { isListening = true; document.getElementById('micBtn').classList.add('recording'); };
-      recognition.onresult = (e) => {
-        const text = e.results[0][0].transcript;
-        document.getElementById('output').innerText = "คุณพูดว่า: " + text;
-        // ส่งข้อความไปให้ Google Script ประมวลผล
-        fetch(GAS_URL + "?query=" + encodeURIComponent(text))
-          .then(res => res.json())
-          .then(data => {
-            document.getElementById('output').innerText = data.answer;
-            speak(data.answer);
-          });
-      };
+      recognition.onresult = (e) => sendToGemini(e.results[0][0].transcript);
       recognition.onend = () => { isListening = false; document.getElementById('micBtn').classList.remove('recording'); };
     }
 
@@ -61,11 +69,41 @@
       }
     }
 
+    function sendToGemini(query) {
+      document.getElementById('output').innerText = "คุณพูดว่า: " + query;
+      // เชื่อมต่อกับ Google Apps Script ผ่าน URL ที่กำหนดไว้
+      fetch(`${WEB_APP_URL}?query=${encodeURIComponent(query)}&category=${encodeURIComponent(currentCategory)}`)
+        .then(res => res.json())
+        .then(data => {
+          document.getElementById('output').innerText = data.answer;
+          speak(data.answer);
+          if(data.url) playAni(data.url);
+        })
+        .catch(err => console.error("Error:", err));
+    }
+
     function speak(text) {
-      const msg = new SpeechSynthesisUtterance(text);
+      window.speechSynthesis.cancel();
+      const msg = new SpeechSynthesisUtterance(text.replace(/[*#-]/g, ""));
       msg.lang = 'th-TH';
       window.speechSynthesis.speak(msg);
     }
+
+    function playAni(url) {
+      if (animation) animation.destroy();
+      animation = lottie.loadAnimation({ container: document.getElementById('lottie-view'), renderer: 'svg', loop: true, autoplay: true, path: url });
+    }
+
+    function setCategory(cat, id) {
+      currentCategory = cat;
+      document.querySelectorAll('.btn-cat').forEach(b => b.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+
+    // โหลด Lottie เริ่มต้น
+    window.onload = () => {
+       playAni("https://assets10.lottiefiles.com/packages/lf20_myejioos.json"); // ใส่ลิงก์ Lottie เริ่มต้นของคุณ
+    };
   </script>
 </body>
 </html>
