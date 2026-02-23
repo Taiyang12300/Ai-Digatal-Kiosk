@@ -120,46 +120,39 @@ function displayResponse(text) {
     }
 }
 
-// ฟังก์ชันแปลงเลขเป็นคำอ่าน (ช่วยให้เบราว์เซอร์ไม่อ่านข้าม)
-function numberToThaiText(text) {
-    const thaiNumbers = ['ศูนย์', 'หนึ่ง', 'สอง', 'สาม', 'สี่', 'ห้า', 'หก', 'เจ็ด', 'แปด', 'เก้า'];
-    return text.replace(/\d/g, (digit) => thaiNumbers[digit] + " ");
-}
-
 function speak(text) {
     window.speechSynthesis.cancel(); 
     
-    // 1. ทำความสะอาดข้อความพื้นฐาน
-    let cleanText = text.replace(/[*#-_]/g, " ");
-
-    // 2. แปลงเวลา (เช่น 09.00) ให้เป็นคำอ่าน
-    cleanText = cleanText.replace(/(\d{1,2})\.(\d{2})/g, "$1 นาฬิกา $2 นาที");
-
-    // 3. แปลงตัวเลขที่เหลือให้เป็นคำพูด (ถ้า TTS ยังไม่ยอมอ่าน)
-    // หมายเหตุ: ถ้าต้องการให้อ่านเป็น "สิบแปด" แทน "หนึ่ง แปด" ให้ข้ามขั้นตอนนี้
-    // แต่ถ้ามันไม่อ่านเลย การแปลงเป็น "หนึ่ง แปด" จะช่วยให้ระบบยอมพูดออกมาครับ
-    // cleanText = numberToThaiText(cleanText); 
+    // 1. ปรับปรุงการเตรียมข้อความ (Text Pre-processing)
+    let cleanText = text
+        .replace(/\*\*/g, "")               // ลบเครื่องหมายดอกจันออก
+        .replace(/(\d+)/g, " $1 ")         // เว้นวรรคหน้าและหลังตัวเลขทุกจุด (หัวใจสำคัญ!)
+        .replace(/ปีบริบูรณ์/g, " ปี บริบูรณ์ ") // ช่วยให้อ่านคำศัพท์ยากได้ชัดขึ้น
+        .replace(/ชม\./g, " ชั่วโมง ")       // แปลงคำย่อเป็นคำเต็ม
+        .replace(/(\d+)\s+ปี/g, "$1 ปี")    // ช่วยให้กลุ่มคำอายุชัดเจนขึ้น
+        .trim();
 
     const msg = new SpeechSynthesisUtterance(cleanText);
     msg.lang = 'th-TH';
 
-    // เลือกเสียงที่ฉลาดที่สุดในเครื่อง
+    // 2. ค้นหาเสียงที่คุณภาพดีที่สุด
     const voices = window.speechSynthesis.getVoices();
-    const thaiVoice = voices.find(v => v.name.includes('Google') && v.lang === 'th-TH') || 
+    const thaiVoice = voices.find(v => v.lang === 'th-TH' && v.name.includes('Google')) || 
                       voices.find(v => v.lang === 'th-TH');
     
     if (thaiVoice) msg.voice = thaiVoice;
     
-    msg.rate = 1.0; 
+    msg.rate = 0.95;  // ลดความเร็วลงนิดเดียวเพื่อให้ฟังตัวเลขทัน
+    msg.pitch = 1.0;
+
+    msg.onstart = () => updateLottie('talking');
     msg.onend = () => updateLottie('idle');
 
-    // สำคัญ: สำหรับมือถือ ต้องใช้การหน่วงเวลาเล็กน้อย
+    // สำหรับมือถือ/แท็บเล็ต ต้องหน่วงเวลาเล็กน้อย
     setTimeout(() => {
         window.speechSynthesis.speak(msg);
-    }, 200);
+    }, 250);
 }
-
-
 
 // 6. ฟังก์ชันเปลี่ยนท่าทาง Lottie (ดึง URL จากฐานข้อมูล JSON)
 function updateLottie(state) {
