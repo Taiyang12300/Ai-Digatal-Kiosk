@@ -18,7 +18,7 @@ async function initDatabase() {
             // เปลี่ยนข้อความต้อนรับเมื่อโหลดข้อมูลเสร็จ
             const welcomeBox = document.getElementById('response-text') || document.getElementById('output');
             if (welcomeBox) {
-                welcomeBox.innerText = "สอบถามข้อมูลกดที่ปุ่มไมค์ได้เลยค่ะ";
+                welcomeBox.innerText = "กดที่ปุ่มไมค์เพื่อสอบถามข้อมูลได้เลยค่ะ";
             }
             // อัปเดต Lottie เป็นท่าทางปกติ
             updateLottie('idle');
@@ -120,48 +120,13 @@ function displayResponse(text) {
     }
 }
 
-// ฟังก์ชันไม้ตาย: แปลงตัวเลขเป็นคำอ่านภาษาไทย
-function forceThaiNumber(text) {
-    const thaiNumbers = ['ศูนย์', 'หนึ่ง', 'สอง', 'สาม', 'สี่', 'ห้า', 'หก', 'เจ็ด', 'แปด', 'เก้า'];
-    return text.replace(/\d/g, (digit) => " " + thaiNumbers[parseInt(digit)] + " ");
-}
-
 function speak(text) {
-    window.speechSynthesis.cancel(); 
-    
-    // 1. จัดการข้อความเบื้องต้น
-    let cleanText = text
-        .replace(/[*#-_]/g, " ")
-        .replace(/\(/g, " , ") // เปลี่ยนวงเล็บเป็นเครื่องหมายคอมม่าเพื่อให้เว้นจังหวะ
-        .replace(/\)/g, " , ");
-
-    // 2. แปลงคำย่อที่พบบ่อย
-    cleanText = cleanText.replace(/ชม\./g, " ชั่วโมง ");
-    cleanText = cleanText.replace(/น\./g, " นาฬิกา ");
-
-    // 3. บังคับเปลี่ยนตัวเลขเป็นคำอ่าน (ไม้ตาย)
-    cleanText = forceThaiNumber(cleanText);
-
-    const msg = new SpeechSynthesisUtterance(cleanText);
-    msg.lang = 'th-TH';
-
-    // 4. เลือกเสียงที่เสถียรที่สุด
-    const voices = window.speechSynthesis.getVoices();
-    const thaiVoice = voices.find(v => v.lang === 'th-TH' && v.name.includes('Google')) || 
-                      voices.find(v => v.lang === 'th-TH');
-    
-    if (thaiVoice) msg.voice = thaiVoice;
-    
-    msg.rate = 1.0; 
-    msg.pitch = 1.0;
-
-    msg.onstart = () => updateLottie('talking');
-    msg.onend = () => updateLottie('idle');
-
-    setTimeout(() => {
-        window.speechSynthesis.speak(msg);
-    }, 250);
-}
+      window.speechSynthesis.cancel();
+      const msg = new SpeechSynthesisUtterance(text.replace(/[*#-]/g, ""));
+      msg.lang = 'th-TH';
+      msg.onend = () => { google.script.run.withSuccessHandler(url => playAni(url)).getLottieUrl('idle'); };
+      window.speechSynthesis.speak(msg);
+    }
 
 // 6. ฟังก์ชันเปลี่ยนท่าทาง Lottie (ดึง URL จากฐานข้อมูล JSON)
 function updateLottie(state) {
