@@ -4,7 +4,7 @@
  */
 
 let localDatabase = null;
-const GAS_URL = "https://script.google.com/macros/s/AKfycbxV8PF0SyAw3tK8WZUcyZMfBIpLmChF8sDHkWhkfUn2z9wOx2K6PxwXq1es9GJQUDTEzA/exec/exec"; 
+const GAS_URL = "https://script.google.com/macros/s/AKfycbzNIrKYpb8OeoLXTlso7xtb4Ir2aeL4uSOjtzZejf8K8wVfmCWcOsGmQsAPPAb8L9Coew/exec"; 
 
 // 1. โหลดคลังข้อมูลทันทีที่เปิดหน้าเว็บ
 async function initDatabase() {
@@ -65,7 +65,13 @@ async function getResponse(userQuery, category) {
         displayResponse("กรุณารอสักครู่ น้องนำทางกำลังเตรียมข้อมูลค่ะ...");
         return;
     }
-
+    // ส่งข้อมูลแบบ Background ไปยัง GAS_URL ที่เราเตรียมไว้รับค่า query
+    try {
+        fetch(`${GAS_URL}?action=logOnly&query=${encodeURIComponent(userQuery)}`, { mode: 'no-cors' });
+    } catch (e) {
+        console.log("Log error:", e);
+    }
+    // -------------------------------------------------------
     const query = userQuery.toLowerCase().trim();
     let bestMatch = { answer: "", score: 0 };
 
