@@ -138,17 +138,33 @@
       window.speechSynthesis.speak(new SpeechSynthesisUtterance(""));
     }
 
-    if (SpeechRecognition) {
+        if (SpeechRecognition) {
       recognition = new SpeechRecognition();
       recognition.lang = 'th-TH';
+
+      // --- ตั้งค่าเพิ่มเพื่อให้น้องใจเย็นขึ้น ---
+      recognition.interimResults = false; // ไม่เอาผลลัพธ์ระหว่างทาง (รอจนมั่นใจค่อยส่ง)
+      recognition.continuous = false;    // หยุดฟังอัตโนมัติเมื่อหยุดพูด 1 ประโยค
+
       recognition.onstart = () => {
         isListening = true;
         document.getElementById('micBtn').classList.add('recording');
-        document.getElementById('statusText').innerText = "กำลังฟัง...";
+        document.getElementById('statusText').innerText = "กำลังฟัง... พูดให้จบประโยคนะคะ";
       };
+
       recognition.onresult = (event) => {
-        processQuery(event.results[0][0].transcript);
+        // ดึงข้อความที่น้องมั่นใจว่าจบประโยคแล้ว (Final Transcript)
+        const text = event.results[0][0].transcript;
+        
+        document.getElementById('statusText').innerText = "กำลังสรุปคำถาม...";
+
+        // หน่วงเวลา 0.8 วินาที ก่อนจะส่งไปดึงคำตอบ 
+        // เพื่อให้แน่ใจว่าเสียงพูดจบสนิทจริงๆ และไม่ดึงคำตอบผิดพลาด
+        setTimeout(() => {
+          processQuery(text);
+        }, 800); 
       };
+
       recognition.onend = () => { stopListening(); };
     }
 
