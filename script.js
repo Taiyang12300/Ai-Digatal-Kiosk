@@ -123,36 +123,37 @@ function displayResponse(text) {
 function speak(text) {
     window.speechSynthesis.cancel(); 
     
-    // 1. ปรับปรุงการเตรียมข้อความ (Text Pre-processing)
+    // 1. ล้างอักขระพิเศษและจัดการตัวเลข
     let cleanText = text
-        .replace(/\*\*/g, "")               // ลบเครื่องหมายดอกจันออก
-        .replace(/(\d+)/g, " $1 ")         // เว้นวรรคหน้าและหลังตัวเลขทุกจุด (หัวใจสำคัญ!)
-        .replace(/ปีบริบูรณ์/g, " ปี บริบูรณ์ ") // ช่วยให้อ่านคำศัพท์ยากได้ชัดขึ้น
-        .replace(/ชม\./g, " ชั่วโมง ")       // แปลงคำย่อเป็นคำเต็ม
-        .replace(/(\d+)\s+ปี/g, "$1 ปี")    // ช่วยให้กลุ่มคำอายุชัดเจนขึ้น
+        .replace(/[\u200B-\u200D\uFEFF\u00A0]/g, "") // ล้าง "ช่องว่างที่มองไม่เห็น" ทั้งหมดออก
+        .replace(/[*#-_]/g, " ")                    // ล้างสัญลักษณ์พิเศษ
+        .replace(/(\d+)/g, " $1 ")                  // เว้นวรรคหน้า-หลังตัวเลขให้ชัดเจน
+        .replace(/\(/g, " ")                        // ล้างวงเล็บเปิด
+        .replace(/\)/g, " ")                        // ล้างวงเล็บปิด
         .trim();
 
+    // 2. สร้างคำสั่งเสียง
     const msg = new SpeechSynthesisUtterance(cleanText);
     msg.lang = 'th-TH';
 
-    // 2. ค้นหาเสียงที่คุณภาพดีที่สุด
+    // 3. เลือกเสียงภาษาไทยที่ฉลาดที่สุด
     const voices = window.speechSynthesis.getVoices();
     const thaiVoice = voices.find(v => v.lang === 'th-TH' && v.name.includes('Google')) || 
                       voices.find(v => v.lang === 'th-TH');
     
     if (thaiVoice) msg.voice = thaiVoice;
     
-    msg.rate = 0.95;  // ลดความเร็วลงนิดเดียวเพื่อให้ฟังตัวเลขทัน
+    msg.rate = 1.0; 
     msg.pitch = 1.0;
 
-    msg.onstart = () => updateLottie('talking');
     msg.onend = () => updateLottie('idle');
 
-    // สำหรับมือถือ/แท็บเล็ต ต้องหน่วงเวลาเล็กน้อย
+    // สำหรับมือถือ/แท็บเล็ต ต้องใช้ Delay เล็กน้อย
     setTimeout(() => {
         window.speechSynthesis.speak(msg);
     }, 250);
 }
+
 
 // 6. ฟังก์ชันเปลี่ยนท่าทาง Lottie (ดึง URL จากฐานข้อมูล JSON)
 function updateLottie(state) {
