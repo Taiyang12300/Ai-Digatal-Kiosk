@@ -8,7 +8,7 @@ const GAS_URL = "https://script.google.com/macros/s/AKfycbzNIrKYpb8OeoLXTlso7xtb
 
 // --- ตัวแปรสำหรับระบบ Motion Detection & Idle ---
 let idleTimer; 
-const IDLE_TIME_LIMIT = 120000; // 2 นาที
+const IDLE_TIME_LIMIT = 6000; // 1 นาที
 
 let video = document.getElementById('video');
 let canvas = document.getElementById('motionCanvas');
@@ -17,7 +17,7 @@ let prevFrame = null;
 let isDetecting = true; 
 let hasGreeted = false;
 let motionStartTime = null; 
-const DETECTION_THRESHOLD = 800; // ต้องยืนนิ่ง/ขยับหน้ากล้องนาน 0.8 วินาทีถึงจะทัก
+const DETECTION_THRESHOLD = 2000; // ต้องยืนนิ่ง/ขยับหน้ากล้องนาน 2 วินาทีถึงจะทัก
 
 // 1. เริ่มต้นระบบและโหลดคลังข้อมูล
 async function initDatabase() {
