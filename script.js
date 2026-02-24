@@ -8,7 +8,7 @@ const GAS_URL = "https://script.google.com/macros/s/AKfycbzNIrKYpb8OeoLXTlso7xtb
 
 // --- ตัวแปรสำหรับระบบ Motion Detection & Idle ---
 let idleTimer; 
-const IDLE_TIME_LIMIT = 30000; // 30 วินาที
+const IDLE_TIME_LIMIT = 60000; // 1 นาที
 
 let video = document.getElementById('video');
 let canvas = document.getElementById('motionCanvas');
@@ -91,11 +91,11 @@ function detectMotion() {
             const rDiff = Math.abs(data[i] - prevData[i]);
             const gDiff = Math.abs(data[i+1] - prevData[i+1]);
             const bDiff = Math.abs(data[i+2] - prevData[i+2]);
-            if (rDiff + gDiff + bDiff > 200) diff++;
+            if (rDiff + gDiff + bDiff > 300) diff++;
         }
 
         // --- ส่วนที่ปรับจูนการตรวจจับคนหน้าตู้ ---
-        if (diff > 1000) { 
+        if (diff > 2000) { 
             // กรณีพบความเคลื่อนไหว (คนขยับ)
             onMotionDetected(diff);
             lastMotionTime = Date.now(); // บันทึกเวลาที่พบการขยับล่าสุด
