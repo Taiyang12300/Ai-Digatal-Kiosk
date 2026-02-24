@@ -120,14 +120,34 @@ function displayResponse(text) {
 
 // 5. สั่งงานเสียง
 function speak(text) {
+    // 1. หยุดเสียงเก่าทันที
     window.speechSynthesis.cancel(); 
+
+    // 2. ทำความสะอาดสัญลักษณ์ แต่คงตัวเลขและช่องว่างไว้ครบถ้วน
     const cleanText = text.replace(/[*#-]/g, ""); 
+    
+    // 3. สร้างการอ่าน
     const msg = new SpeechSynthesisUtterance(cleanText);
     msg.lang = 'th-TH';
+
+    // 4. บังคับเลือกเสียงผู้หญิง (ถ้ามีในระบบ) เพื่อความลื่นหูแบบมือถือ
+    const voices = window.speechSynthesis.getVoices();
+    const femaleVoice = voices.find(v => 
+        (v.lang === 'th-TH' || v.lang === 'th_TH') && 
+        (v.name.includes('Google') || v.name.includes('Narisa') || v.name.includes('Premium'))
+    );
+    if (femaleVoice) msg.voice = femaleVoice;
+
+    // 5. ปรับ Pitch ให้เสียงดูนุ่มนวลขึ้น (1.05 - 1.1 จะช่วยให้เสียงผู้ชายดูซอฟต์ลง หรือเสียงผู้หญิงดูใจดีขึ้น)
+    msg.pitch = 1.05; 
+    msg.rate = 1.0; // คงความเร็วที่ 1.0 เพื่อไม่ให้ตัวเลขถูกอ่านรวบจนข้าม
+
     msg.onstart = () => updateLottie('talking');
     msg.onend = () => updateLottie('idle');
+
     window.speechSynthesis.speak(msg);
 }
+
 
 // 6. เปลี่ยนท่าทาง Lottie
 function updateLottie(state) {
@@ -168,3 +188,6 @@ function renderFAQButtons() {
 }
 
 initDatabase();
+// เตรียมรายการเสียงให้พร้อมใช้งานทันที
+window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+
