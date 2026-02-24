@@ -109,6 +109,33 @@
     let recognition, isListening = false;
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
+    // --- เริ่มต้นการตั้งค่าหูฟัง (Speech Recognition) ---
+    if (SpeechRecognition) {
+      recognition = new SpeechRecognition();
+      recognition.lang = 'th-TH';
+      recognition.interimResults = false; 
+      recognition.continuous = false;    
+
+      recognition.onstart = () => {
+        isListening = true;
+        document.getElementById('micBtn').classList.add('recording');
+        document.getElementById('statusText').innerText = "กำลังฟัง... พูดให้จบประโยคนะคะ";
+      };
+
+      recognition.onresult = (event) => {
+        const text = event.results[0][0].transcript;
+        document.getElementById('statusText').innerText = "กำลังสรุปคำถาม...";
+
+        // หน่วงเวลา 0.8 วินาที เพื่อความแม่นยำก่อนส่งไปหาคำตอบ
+        setTimeout(() => {
+          processQuery(text);
+        }, 800); 
+      };
+
+      recognition.onend = () => { stopListening(); };
+    }
+
+    // --- ฟังก์ชันจัดการการพิมพ์ ---
     function handleManualInput() {
       const input = document.getElementById('userInput');
       const text = input.value.trim();
@@ -120,57 +147,33 @@
 
     function handleKeyPress(e) { if (e.key === 'Enter') handleManualInput(); }
 
+    // --- ฟังก์ชันส่งคำถามไปประมวลผล ---
     async function processQuery(query) {
       const output = document.getElementById('response-text');
       output.innerText = "กำลังค้นหาคำตอบ...";
+      
+      // เรียกใช้ getResponse จากไฟล์ script.js
       if (typeof getResponse === "function") {
         await getResponse(query, currentCategory);
       }
     }
 
+    // --- ฟังก์ชันเปลี่ยนหมวดหมู่ ---
     function setCategory(cat, btnId) {
       currentCategory = cat;
       document.querySelectorAll('.btn-cat').forEach(b => b.classList.remove('active'));
       document.getElementById(btnId).classList.add('active');
       document.getElementById('response-text').innerText = "เลือกหมวด: " + cat + " ถามได้เลยค่ะ";
       
-      // ปลดล็อคเสียง
+      // ปลดล็อคเสียง (สำคัญสำหรับ Chrome/Safari)
       window.speechSynthesis.speak(new SpeechSynthesisUtterance(""));
-    }
-
-        if (SpeechRecognition) {
-      recognition = new SpeechRecognition();
-      recognition.lang = 'th-TH';
-
-      // --- ตั้งค่าเพิ่มเพื่อให้น้องใจเย็นขึ้น ---
-      recognition.interimResults = false; // ไม่เอาผลลัพธ์ระหว่างทาง (รอจนมั่นใจค่อยส่ง)
-      recognition.continuous = false;    // หยุดฟังอัตโนมัติเมื่อหยุดพูด 1 ประโยค
-
-      recognition.onstart = () => {
-        isListening = true;
-        document.getElementById('micBtn').classList.add('recording');
-        document.getElementById('statusText').innerText = "กำลังฟัง... พูดให้จบประโยคนะคะ";
-      };
-
-      recognition.onresult = (event) => {
-        // ดึงข้อความที่น้องมั่นใจว่าจบประโยคแล้ว (Final Transcript)
-        const text = event.results[0][0].transcript;
-        
-        document.getElementById('statusText').innerText = "กำลังสรุปคำถาม...";
-
-        // หน่วงเวลา 0.8 วินาที ก่อนจะส่งไปดึงคำตอบ 
-        // เพื่อให้แน่ใจว่าเสียงพูดจบสนิทจริงๆ และไม่ดึงคำตอบผิดพลาด
-        setTimeout(() => {
-          processQuery(text);
-        }, 800); 
-      };
-
-      recognition.onend = () => { stopListening(); };
     }
 
     function toggleListening() {
       if (isListening) recognition.stop();
-      else { try { recognition.start(); } catch(e) {} }
+      else { 
+        try { recognition.start(); } catch(e) { console.error("Mic error:", e); } 
+      }
     }
 
     function stopListening() {
@@ -178,6 +181,6 @@
       document.getElementById('micBtn').classList.remove('recording');
       document.getElementById('statusText').innerText = "แตะไมค์เพื่อเริ่มพูด";
     }
-  </script>
+</script>
 </body>
 </html>
