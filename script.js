@@ -95,7 +95,7 @@ function detectMotion() {
         }
 
         // --- ส่วนที่ปรับจูนการตรวจจับคนหน้าตู้ ---
-        if (diff > 4500) { 
+        if (diff > 7000) { 
             // กรณีพบความเคลื่อนไหว (คนขยับ)
             onMotionDetected(diff);
             lastMotionTime = Date.now(); // บันทึกเวลาที่พบการขยับล่าสุด
