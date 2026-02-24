@@ -105,7 +105,7 @@ function detectMotion() {
             onMotionDetected();
         } else {
             // ถ้านิ่งเกินไป (ไม่มีคนขยับ) ให้ล้างเวลาทิ้ง
-            //motionStartTime = null; 
+            motionStartTime = null; 
         }
     }
     
