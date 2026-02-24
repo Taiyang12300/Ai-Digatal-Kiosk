@@ -17,7 +17,7 @@ let prevFrame = null;
 let isDetecting = true; 
 let hasGreeted = false;
 let motionStartTime = null; 
-const DETECTION_THRESHOLD = 1000; // ยืนนิ่ง 1 วินาที
+const DETECTION_THRESHOLD = 3000; // ยืนนิ่ง 3 วินาที
 let isBusy = false; 
 
 // 1. เริ่มต้นระบบและโหลดคลังข้อมูล
