@@ -38,26 +38,51 @@ async function initDatabase() {
     }
 }
 
-// 2. ระบบ Idle Timeout & Reset
+// 2. ฟังก์ชันรีเซ็ตกลับหน้าโฮม (True Home)
 function resetToHome() {
-    console.log("DEBUG: [System] รีเซ็ตหน้าจอเริ่มต้น (Idle Reset)");
+    console.log("DEBUG: [System] กำลังรีเซ็ตสถานะกลับหน้าแรก...");
+    
+    // หยุดเสียงที่กำลังพูดค้างทั้งหมด
     window.speechSynthesis.cancel(); 
+    
+    // ล้างสถานะ UI และ Animation
     displayResponse("กดที่ปุ่มไมค์เพื่อสอบถามข้อมูลได้เลยค่ะ");
     updateLottie('idle');
     
+    // รีเซ็ต Logic Flags
     isBusy = false; 
     hasGreeted = false; 
     isDetecting = true; 
-    motionStartTime = null;
+    motionStartTime = null; 
+    
+    // เริ่มนับ Idle ใหม่เสมอหลังจากรีเซ็ตเสร็จ
     restartIdleTimer();
 }
 
+// 3. ฟังก์ชันนับเวลาถอยหลัง
 function restartIdleTimer() {
     clearTimeout(idleTimer);
-    idleTimer = setTimeout(resetToHome, IDLE_TIME_LIMIT);
+    
+    idleTimer = setTimeout(() => {
+        // เงื่อนไข: จะรีเซ็ตได้ต้อง "ไม่ได้คุยอยู่" และ "ไม่มีคนขยับหน้าตู้"
+        if (!isBusy) {
+            if (motionStartTime === null) {
+                // กรณี A: ไม่มีคนหน้าตู้เลยจริงๆ -> Reset ทันที
+                resetToHome();
+            } else {
+                // กรณี B: ยังมีคนอยู่ (Diff ยังสูง) แต่เขาไม่ได้แตะจอ 
+                // ให้ต่อเวลาให้อีก 10 วินาที (ไม่รีเซ็ตหน้าจอหนีเขา)
+                console.log("DEBUG: [System] คนยังอยู่แต่ไม่แตะจอ -> ต่อเวลา 10 วิ");
+                restartIdleTimer(); 
+            }
+        }
+    }, IDLE_TIME_LIMIT);
 }
 
+// 4. ผูกเหตุการณ์การสัมผัสจอ (เพิ่ม Touch สำหรับตู้ Kiosk)
 window.addEventListener('mousedown', restartIdleTimer);
+window.addEventListener('touchstart', restartIdleTimer); 
+window.addEventListener('keypress', restartIdleTimer); // เผื่อมีการพิมพ์
 
 // 3. ระบบ Motion Detection (ดวงตา AI)
 async function initCamera() {
