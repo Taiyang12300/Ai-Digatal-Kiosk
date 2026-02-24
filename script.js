@@ -122,18 +122,15 @@ function detectMotion() {
 
         // --- ส่วนที่ปรับจูนการตรวจจับคนหน้าตู้ ---
         if (diff > 40000) { 
-            // กรณีพบความเคลื่อนไหว (คนขยับ)
+            // คืนค่า Log แสดงผลการเคลื่อนไหว
+            console.log(`DEBUG: [Motion] Diff: ${diff}`); 
             onMotionDetected(diff);
-            lastMotionTime = Date.now(); // บันทึกเวลาที่พบการขยับล่าสุด
+            lastMotionTime = Date.now(); 
         } else {
-            // กรณี "นิ่ง" (คนยืนรอเฉยๆ)
-            // ถ้าเคยพบการเคลื่อนไหวแล้ว (motionStartTime ไม่เป็น null) 
-            // ให้ถือว่า "คนยังอยู่" และปล่อยให้ onMotionDetected นับเวลาต่อไป
             if (motionStartTime !== null) {
-                onMotionDetected(0); // ส่ง 0 ไปเพื่อให้ onMotionDetected ทำงานต่อ
+                onMotionDetected(0); 
             }
 
-            // แต่ถ้า "นิ่งสนิท" นานเกิน 3 วินาที แสดงว่าคนเดินออกไปแล้วจริงๆ
             const timeSinceLastMotion = Date.now() - (window.lastMotionTime || 0);
             if (timeSinceLastMotion > 3000) {
                 if (motionStartTime !== null) {
@@ -149,31 +146,25 @@ function detectMotion() {
 }
 
 function onMotionDetected(diffValue) {
-    // 1. ถ้าทักไปแล้ว หรือระบบกำลังทำงานอื่นอยู่ ให้ข้ามไป
     if (hasGreeted || !isDetecting || isBusy) return;
 
     const currentTime = Date.now();
     
-    // 2. ถ้ายังไม่เริ่มนับเวลา (จุดเริ่มต้นการตรวจจับคน)
     if (motionStartTime === null) {
         motionStartTime = currentTime;
+        // คืนค่า Log ตอนเริ่มตรวจพบ
         console.log(`DEBUG: [Detection] เริ่มพบวัตถุหน้าตู้ (Diff: ${diffValue})`);
     } else {
         const duration = currentTime - motionStartTime;
         
-        // 3. แสดง Progress ทุก 200ms เพื่อดูความคืบหน้า
+        // คืนค่า Log แสดงความคืบหน้า (Progress) ทุก 200ms
         if (Math.floor(duration % 200) < 30) {
             console.log(`DEBUG: [Tracking] ยืนรอนาน: ${duration}ms / ${DETECTION_THRESHOLD}ms`);
         }
 
-        // 4. เมื่อยืนนานพอจนมั่นใจว่าเป็น "คน" ไม่ใช่แค่สิ่งของเคลื่อนผ่าน
         if (duration >= DETECTION_THRESHOLD) {
             console.log("DEBUG: [Confirm] ยืนยันพบคนอยู่หน้าตู้ -> สั่งทักทาย");
-            
-            // เรียกฟังก์ชันทักทาย
             greetUser();
-            
-            // เคลียร์ค่าเพื่อรอรับคนถัดไป (หลังจาก Reset)
             motionStartTime = null; 
         }
     }
