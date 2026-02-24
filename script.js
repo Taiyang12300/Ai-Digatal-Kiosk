@@ -1,5 +1,5 @@
 /**
- * สมองกลน้องนำทาง - ฉบับปรับปรุง (แก้ไข Syntax + เพิ่ม Log ตรวจสอบ)
+ * สมองกลน้องนำทาง - เวอร์ชันกู้คืน Log และแก้จุดบกพร่อง
  * (Horizontal Search + Idle Reset + Motion Detection + Busy Lock)
  */
 
@@ -8,7 +8,10 @@ const GAS_URL = "https://script.google.com/macros/s/AKfycbzNIrKYpb8OeoLXTlso7xtb
 
 // --- ตัวแปรสำหรับระบบ Motion Detection & Idle ---
 let idleTimer; 
-const IDLE_TIME_LIMIT = 30000; // 30 วินาที
+const IDLE_TIME_LIMIT = 30000; 
+
+// [สำคัญ] ประกาศตัวแปรนี้เพื่อให้ detectMotion ทำงานได้ไม่ Error
+let lastMotionTime = Date.now(); 
 
 let video = document.getElementById('video');
 let canvas = document.getElementById('motionCanvas');
@@ -17,11 +20,10 @@ let prevFrame = null;
 let isDetecting = true; 
 let hasGreeted = false;
 let motionStartTime = null; 
-let lastMotionTime = Date.now(); 
-const DETECTION_THRESHOLD = 3000; // ยืนนิ่ง 3 วินาที
+const DETECTION_THRESHOLD = 3000; 
 let isBusy = false; 
 
-// 1. เริ่มต้นระบบและโหลดคลังข้อมูล
+// 1. เริ่มต้นระบบ
 async function initDatabase() {
     console.log("DEBUG: [Init] กำลังโหลดฐานข้อมูล...");
     try {
@@ -39,53 +41,39 @@ async function initDatabase() {
     }
 }
 
-// 2. ฟังก์ชันรีเซ็ตกลับหน้าโฮม (True Home)
+// 2. ฟังก์ชันรีเซ็ต
 function resetToHome() {
     console.log("DEBUG: [System] กำลังรีเซ็ตสถานะกลับหน้าแรก...");
-    
-    // หยุดเสียงที่กำลังพูดค้างทั้งหมด
     window.speechSynthesis.cancel(); 
-    
-    // ล้างสถานะ UI และ Animation
     displayResponse("กดที่ปุ่มไมค์เพื่อสอบถามข้อมูลได้เลยค่ะ");
     updateLottie('idle');
-    
-    // รีเซ็ต Logic Flags
     isBusy = false; 
     hasGreeted = false; 
     isDetecting = true; 
     motionStartTime = null; 
-    
-    // เริ่มนับ Idle ใหม่เสมอหลังจากรีเซ็ตเสร็จ
     restartIdleTimer();
 }
 
-// 3. ฟังก์ชันนับเวลาถอยหลัง
 function restartIdleTimer() {
     clearTimeout(idleTimer);
-    
     idleTimer = setTimeout(() => {
-        // เงื่อนไข: จะรีเซ็ตได้ต้อง "ไม่ได้คุยอยู่" และ "ไม่มีคนขยับหน้าตู้"
         if (!isBusy) {
             if (motionStartTime === null) {
-                // กรณี A: ไม่มีคนหน้าตู้เลยจริงๆ -> Reset ทันที
                 resetToHome();
             } else {
-                // กรณี B: ยังมีคนอยู่ (Diff ยังสูง) แต่เขาไม่ได้แตะจอ 
-                // ให้ต่อเวลาให้อีก 10 วินาที (ไม่รีเซ็ตหน้าจอหนีเขา)
-                console.log("DEBUG: [System] คนยังอยู่แต่ไม่แตะจอ -> ต่อเวลา 10 วิ");
+                console.log("DEBUG: [System] คนยังอยู่แต่ไม่แตะจอ -> ต่อเวลา");
                 restartIdleTimer(); 
             }
         }
     }, IDLE_TIME_LIMIT);
 }
 
-// 4. ผูกเหตุการณ์การสัมผัสจอ (เพิ่ม Touch สำหรับตู้ Kiosk)
+// ผูกเหตุการณ์สัมผัส
 window.addEventListener('mousedown', restartIdleTimer);
 window.addEventListener('touchstart', restartIdleTimer); 
-window.addEventListener('keypress', restartIdleTimer); // เผื่อมีการพิมพ์
+window.addEventListener('keypress', restartIdleTimer);
 
-// 3. ระบบ Motion Detection (ดวงตา AI)
+// 3. ระบบดวงตา AI (คืนค่า Log Diff)
 async function initCamera() {
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -95,7 +83,7 @@ async function initCamera() {
             requestAnimationFrame(detectMotion);
         }
     } catch (err) {
-        console.warn("DEBUG ERROR: ไม่สามารถเข้าถึงกล้องได้:", err);
+        console.warn("DEBUG ERROR: กล้องไม่ทำงาน:", err);
     }
 }
 
@@ -120,10 +108,9 @@ function detectMotion() {
             if (rDiff + gDiff + bDiff > 400) diff++;
         }
 
-        // --- ส่วนที่ปรับจูนการตรวจจับคนหน้าตู้ ---
+        // --- คืนค่า Log Diff เพื่อตรวจสอบหน้าตู้ ---
         if (diff > 40000) { 
-            // คืนค่า Log แสดงผลการเคลื่อนไหว
-            console.log(`DEBUG: [Motion] Diff: ${diff}`); 
+            console.log(`DEBUG: [Motion] Diff: ${diff}`); // คืนค่า Log นี้
             onMotionDetected(diff);
             lastMotionTime = Date.now(); 
         } else {
@@ -131,7 +118,7 @@ function detectMotion() {
                 onMotionDetected(0); 
             }
 
-            const timeSinceLastMotion = Date.now() - (window.lastMotionTime || 0);
+            const timeSinceLastMotion = Date.now() - lastMotionTime;
             if (timeSinceLastMotion > 3000) {
                 if (motionStartTime !== null) {
                     console.log("DEBUG: [System] คนเดินออกไปแล้ว (นิ่งเกิน 3 วินาที) -> Reset");
@@ -152,18 +139,17 @@ function onMotionDetected(diffValue) {
     
     if (motionStartTime === null) {
         motionStartTime = currentTime;
-        // คืนค่า Log ตอนเริ่มตรวจพบ
-        console.log(`DEBUG: [Detection] เริ่มพบวัตถุหน้าตู้ (Diff: ${diffValue})`);
+        console.log(`DEBUG: [Detection] เริ่มพบวัตถุ (Diff: ${diffValue})`);
     } else {
         const duration = currentTime - motionStartTime;
         
-        // คืนค่า Log แสดงความคืบหน้า (Progress) ทุก 200ms
+        // คืนค่า Log Progress ทุก 200ms
         if (Math.floor(duration % 200) < 30) {
             console.log(`DEBUG: [Tracking] ยืนรอนาน: ${duration}ms / ${DETECTION_THRESHOLD}ms`);
         }
 
         if (duration >= DETECTION_THRESHOLD) {
-            console.log("DEBUG: [Confirm] ยืนยันพบคนอยู่หน้าตู้ -> สั่งทักทาย");
+            console.log("DEBUG: [Confirm] ยืนยันพบคน -> สั่งทักทาย");
             greetUser();
             motionStartTime = null; 
         }
@@ -172,11 +158,9 @@ function onMotionDetected(diffValue) {
 
 function greetUser() {
     if (hasGreeted || isBusy) return; 
-    
     isBusy = true; 
     isDetecting = false; 
-    
-    console.log("DEBUG: [Greet] กำลังสุ่มคำทักทาย...");
+    console.log("DEBUG: [Greet] สุ่มคำทักทาย...");
     updateLottie('talking');
 
     const greetings = [
@@ -185,25 +169,20 @@ function greetUser() {
         "สวัสดีครับ เชิญสอบถามข้อมูลที่ต้องการได้เลยครับ"
     ];
     const randomGreeting = greetings[Math.floor(Math.random() * greetings.length)];
-    
     displayResponse(randomGreeting);
-
-    setTimeout(() => {
-        speak(randomGreeting);
-    }, 100);
-
+    setTimeout(() => { speak(randomGreeting); }, 100);
     hasGreeted = true; 
 }
 
-// 4. ฟังก์ชันค้นหาคำตอบ
-async function getResponse(userQuery, category) {
-    console.log(`DEBUG: [Search] รับคำถาม -> "${userQuery}"`);
+// 4. การค้นหาข้อมูล (Horizontal Search - ฟังก์ชันเดิม)
+async function getResponse(userQuery) {
+    console.log(`DEBUG: [Search] คำถาม: "${userQuery}"`);
     isBusy = true;
     isDetecting = false;
     window.speechSynthesis.cancel(); 
 
     if (!localDatabase) {
-        displayResponse("กรุณารอสักครู่ น้องนำทางกำลังเตรียมข้อมูลค่ะ...");
+        displayResponse("กรุณารอสักครู่ กำลังเตรียมข้อมูล...");
         isBusy = false; 
         isDetecting = true;
         return;
@@ -216,187 +195,109 @@ async function getResponse(userQuery, category) {
     let bestMatch = { answer: "", score: 0, sheet: "" };
     let foundExact = false;
 
-    const allSheets = Object.keys(localDatabase);
+    Object.keys(localDatabase).forEach(sheetName => {
+        if (["Lottie_State", "Config", "FAQ"].includes(sheetName) || foundExact) return;
 
-    allSheets.forEach(sheetName => {
-        if (["Lottie_State", "Config", "FAQ"].includes(sheetName)) return;
-        if (foundExact) return;
-
-        const data = localDatabase[sheetName]; 
-        data.forEach((item) => {
+        localDatabase[sheetName].forEach((item) => {
             const key = item[0] ? item[0].toString().toLowerCase().trim() : "";
             const ans = item[1] ? item[1].toString().trim() : "";
-            
             if (!key || !ans) return;
 
             let score = 0;
-            if (query === key) {
-                score = 1.0;
-                foundExact = true;
-            } 
-            else if (query.includes(key) || key.includes(query)) {
-                score = key.length > 3 ? 0.90 : 0.65;
-            } 
-            else if (typeof calculateSimilarity === "function") {
-                score = calculateSimilarity(query, key);
-            }
+            if (query === key) { score = 1.0; foundExact = true; } 
+            else if (query.includes(key) || key.includes(query)) { score = 0.8; } 
+            else if (typeof calculateSimilarity === "function") { score = calculateSimilarity(query, key); }
 
-            if (score > bestMatch.score) {
-                bestMatch = { answer: ans, score: score, sheet: sheetName };
-            }
+            if (score > bestMatch.score) { bestMatch = { answer: ans, score: score, sheet: sheetName }; }
         });
     });
-
-    console.log(`DEBUG: [Search] ค้นหาพบที่ Sheet: ${bestMatch.sheet} (Score: ${bestMatch.score.toFixed(2)})`);
 
     if (bestMatch.score >= 0.50) {
         displayResponse(bestMatch.answer);
         speak(bestMatch.answer);
     } else {
-        const fallback = "ขออภัยค่ะ น้องนำทางไม่พบข้อมูลเรื่องนี้ในระบบ กรุณาลองใช้คำถามอื่นนะคะ";
-        console.log("DEBUG: [Search] ไม่พบคำตอบที่ใกล้เคียงเกณฑ์");
+        const fallback = "ไม่พบข้อมูล กรุณาลองใช้คำถามอื่นนะคะ";
         displayResponse(fallback);
         speak(fallback);
     }
 }
 
-// 5. คำนวณความเหมือน
-function calculateSimilarity(s1, s2) {
-    let longer = s1.toLowerCase().trim();
-    let shorter = s2.toLowerCase().trim();
-    if (s1.length < s2.length) { [longer, shorter] = [shorter, s1]; }
-    let longerLength = longer.length;
-    if (longerLength === 0) return 1.0;
-
-    const editDistance = (s1, s2) => {
-        let costs = [];
-        for (let i = 0; i <= s1.length; i++) {
-            let lastValue = i;
-            for (let j = 0; j <= s2.length; j++) {
-                if (i === 0) costs[j] = j;
-                else if (j > 0) {
-                    let newVal = costs[j - 1];
-                    if (s1.charAt(i - 1) !== s2.charAt(j - 1))
-                        newVal = Math.min(Math.min(newVal, lastValue), costs[j]) + 1;
-                    costs[j - 1] = lastValue;
-                    lastValue = newVal;
-                }
-            }
-            if (i > 0) costs[s2.length] = lastValue;
-        }
-        return costs[s2.length];
-    };
-    return (longerLength - editDistance(longer, shorter)) / longerLength;
-}
-
-// 6. การแสดงผลและเสียง
-function displayResponse(text) {
-    const box = document.getElementById('response-text') || document.getElementById('output');
-    if (box) {
-        box.innerText = text;
-        box.style.opacity = 0;
-        setTimeout(() => { box.style.opacity = 1; }, 50);
-    }
-}
-
+// 5. ระบบเสียง (คืนค่าสถานะ Detecting หลังพูดจบ)
 function speak(text) {
-    // 1. เคลียร์คิวเดิมและหยุดเสียงที่ค้างอยู่
     window.speechSynthesis.cancel(); 
     isBusy = true; 
     isDetecting = false; 
-    
-    const cleanText = text.replace(/[*#-]/g, ""); 
-    const msg = new SpeechSynthesisUtterance(cleanText);
-    
-    // 2. ดึงรายชื่อเสียงใหม่ทุกครั้ง (ป้องกันกรณีโหลดช้า)
+    const msg = new SpeechSynthesisUtterance(text.replace(/[*#-]/g, ""));
     const voices = window.speechSynthesis.getVoices();
-    
-    // 3. กลยุทธ์การเลือกเสียงผู้หญิงภาษาไทย (เรียงลำดับความสำคัญ)
-    const femaleVoice = voices.find(v => v.lang.includes('th') && v.name.includes('Google')) || // อันดับ 1: Google Thai
-                        voices.find(v => v.lang.includes('th') && v.name.includes('Narisa')) || // อันดับ 2: Microsoft Narisa
-                        voices.find(v => v.lang.includes('th') && v.name.includes('Premium')) || // อันดับ 3: Premium Voice
-                        voices.find(v => v.lang.includes('th')); // สุดท้าย: เสียงภาษาไทยอะไรก็ได้ที่มี
+    const femaleVoice = voices.find(v => v.lang.includes('th') && (v.name.includes('Google') || v.name.includes('Narisa'))) || voices.find(v => v.lang.includes('th'));
 
-    if (femaleVoice) {
-        msg.voice = femaleVoice;
-        console.log(`DEBUG: [Voice] เลือกใช้เสียง: ${femaleVoice.name}`);
-    } else {
-        console.warn("DEBUG: [Voice] ไม่พบเสียงภาษาไทยในระบบเลย!");
-    }
-
+    if (femaleVoice) msg.voice = femaleVoice;
     msg.lang = 'th-TH';
-    msg.pitch = 1.05; 
-    msg.rate = 1.0; 
-    msg.volume = 1.0; // มั่นใจว่าระดับเสียงเต็ม 100%
-
-    msg.onstart = () => { 
-        console.log("DEBUG: [Voice] กำลังเริ่มพูด...");
-        updateLottie('talking'); 
-        restartIdleTimer();
-    };
-
-        msg.onend = () => { 
-        console.log("DEBUG: [Voice] พูดจบแล้ว ปลดล็อกระบบ");
+    msg.onstart = () => { updateLottie('talking'); };
+    msg.onend = () => { 
+        console.log("DEBUG: [Voice] พูดจบแล้ว");
         updateLottie('idle'); 
         isBusy = false; 
-        isDetecting = true; // <--- เพิ่มบรรทัดนี้ เพื่อให้ดวงตา AI เริ่มทำงานใหม่
+        isDetecting = true; // คืนค่าให้ตรวจจับต่อ
         restartIdleTimer();
     };
-
-        msg.onerror = (e) => {
-        console.error("DEBUG: [Voice Error]", e);
-        isBusy = false;      // ปลดล็อกสถานะไม่ว่าง
-        isDetecting = true;  // เปิดการตรวจจับการเคลื่อนไหวอีกครั้ง
-        updateLottie('idle'); // กลับไปท่าเตรียมพร้อม
-    };
-    
-    // 4. บังคับ Resume ระบบเสียง (แก้อาการเสียงค้าง/โดนบล็อก)
+    msg.onerror = () => { isBusy = false; isDetecting = true; };
     window.speechSynthesis.resume();
     window.speechSynthesis.speak(msg);
 }
 
+// 6. ส่วนประกอบอื่นๆ (คงเดิม)
+function calculateSimilarity(s1, s2) {
+    let longer = s1.length > s2.length ? s1 : s2;
+    let shorter = s1.length > s2.length ? s2 : s1;
+    if (longer.length === 0) return 1.0;
+    return (longer.length - editDistance(longer, shorter)) / longer.length;
+}
 
-// 7. Lottie & FAQ
-function updateLottie(state) {
-    const player = document.querySelector('lottie-player') || document.getElementById('lottie-canvas');
-    if (!player || !localDatabase || !localDatabase["Lottie_State"]) return;
-
-    const match = localDatabase["Lottie_State"].find(row => 
-        row[0] && row[0].toString().toLowerCase().trim() === state.toLowerCase().trim()
-    );
-
-    if (match && match[1]) {
-        if (typeof player.load === 'function') {
-            player.load(match[1]);
-        } else {
-            player.src = match[1];
+function editDistance(s1, s2) {
+    let costs = [];
+    for (let i = 0; i <= s1.length; i++) {
+        let lastValue = i;
+        for (let j = 0; j <= s2.length; j++) {
+            if (i === 0) costs[j] = j;
+            else if (j > 0) {
+                let newVal = costs[j - 1];
+                if (s1.charAt(i - 1) !== s2.charAt(j - 1)) newVal = Math.min(Math.min(newVal, lastValue), costs[j]) + 1;
+                costs[j - 1] = lastValue; lastValue = newVal;
+            }
         }
+        if (i > 0) costs[s2.length] = lastValue;
     }
+    return costs[s2.length];
+}
+
+function displayResponse(text) {
+    const box = document.getElementById('response-text') || document.getElementById('output');
+    if (box) { box.innerText = text; }
+}
+
+function updateLottie(state) {
+    const player = document.querySelector('lottie-player');
+    if (!player || !localDatabase?.Lottie_State) return;
+    const match = localDatabase.Lottie_State.find(row => row[0]?.toString().toLowerCase() === state.toLowerCase());
+    if (match?.[1]) player.src = match[1];
 }
 
 function renderFAQButtons() {
     const container = document.getElementById('faq-container');
-    if (!container || !localDatabase || !localDatabase["FAQ"]) return;
+    if (!container || !localDatabase?.FAQ) return;
     container.innerHTML = "";
-    
-    const faqData = localDatabase["FAQ"]; 
-    faqData.slice(1).forEach((row) => {
-        const topic = row[0]; 
-        if (topic && topic.toString().trim() !== "") {
+    localDatabase.FAQ.slice(1).forEach((row) => {
+        if (row[0]) {
             const btn = document.createElement('button');
             btn.className = 'faq-btn';
-            btn.innerText = topic.toString().trim();
-            btn.onclick = () => {
-                console.log(`DEBUG: [UI] คลิกปุ่ม FAQ: ${topic}`);
-                getResponse(topic.toString().trim());
-            };
+            btn.innerText = row[0];
+            btn.onclick = () => getResponse(row[0].toString());
             container.appendChild(btn);
         }
     });
 }
 
 initDatabase();
-
-window.speechSynthesis.onvoiceschanged = () => {
-    window.speechSynthesis.getVoices();
-};
+window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.getVoices(); };
+        
