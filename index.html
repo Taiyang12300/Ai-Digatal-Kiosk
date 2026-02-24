@@ -95,12 +95,7 @@
     <p id="statusText" style="margin-top:10px; color: #636e72; font-size: 14px;">แตะไมค์เพื่อเริ่มพูด</p>
   </div>
 
-  <div class="tabs">
-    <button class="btn-cat active" id="btn1" onclick="setCategory('งานใบอนุญาตขับรถ', 'btn1')">ใบอนุญาตขับรถ</button>
-    <button class="btn-cat" id="btn2" onclick="setCategory('งานทะเบียนรถ', 'btn2')">ทะเบียนรถ</button>
-    <button class="btn-cat" id="btn3" onclick="setCategory('งานตรวจสภาพรถ', 'btn3')">ตรวจสภาพรถ</button>
-    <button class="btn-cat" id="btn4" onclick="setCategory('KnowledgeBase', 'btn4')">ข้อมูลทั่วไป</button>
-  </div>
+  
 
   <script src="script.js?v=1.7"></script>
 
@@ -170,11 +165,25 @@
     }
 
     function toggleListening() {
-      if (isListening) recognition.stop();
-      else { 
-        try { recognition.start(); } catch(e) { console.error("Mic error:", e); } 
+  if (isListening) {
+    recognition.stop();
+  } else { 
+    try { 
+      // 1. สั่งให้หยุดเสียงพูดที่ค้างอยู่ทันที
+      window.speechSynthesis.cancel(); 
+      
+      // 2. เปลี่ยนสถานะ Lottie ให้เป็นท่าทางปกติ (เพื่อไม่ให้ปากขยับค้าง)
+      if (typeof updateLottie === "function") {
+        updateLottie('thinking');
       }
-    }
+
+      recognition.start(); 
+    } catch(e) { 
+      console.error("Mic error:", e); 
+    } 
+  }
+}
+
 
     function stopListening() {
       isListening = false;
