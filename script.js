@@ -91,11 +91,11 @@ function detectMotion() {
             const rDiff = Math.abs(data[i] - prevData[i]);
             const gDiff = Math.abs(data[i+1] - prevData[i+1]);
             const bDiff = Math.abs(data[i+2] - prevData[i+2]);
-            if (rDiff + gDiff + bDiff > 300) diff++;
+            if (rDiff + gDiff + bDiff > 400) diff++;
         }
 
         // --- ส่วนที่ปรับจูนการตรวจจับคนหน้าตู้ ---
-        if (diff > 2000) { 
+        if (diff > 4500) { 
             // กรณีพบความเคลื่อนไหว (คนขยับ)
             onMotionDetected(diff);
             lastMotionTime = Date.now(); // บันทึกเวลาที่พบการขยับล่าสุด
