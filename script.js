@@ -17,7 +17,7 @@ let prevFrame = null;
 let isDetecting = true; 
 let hasGreeted = false;
 let motionStartTime = null; 
-const DETECTION_THRESHOLD = 2000; // ต้องยืนนิ่ง/ขยับหน้ากล้องนาน 2 วินาทีถึงจะทัก
+const DETECTION_THRESHOLD = 800; // ต้องยืนนิ่ง/ขยับหน้ากล้องนาน 0.8 วินาทีถึงจะทัก
 
 // 1. เริ่มต้นระบบและโหลดคลังข้อมูล
 async function initDatabase() {
@@ -100,11 +100,11 @@ function detectMotion() {
         // console.log("คะแนนความเคลื่อนไหวปัจจุบัน:", diff); 
 
         // 3. ปรับเกณฑ์ (Threshold) ให้เหมาะสม
-        if (diff > 300) { // ลดจาก 500 เหลือ 300 เพื่อให้ทักง่ายขึ้น
+        if (diff > 200) { // ลดจาก 500 เหลือ 200 เพื่อให้ทักง่ายขึ้น
             onMotionDetected();
         } else {
             // ถ้านิ่งเกินไป (ไม่มีคนขยับ) ให้ล้างเวลาทิ้ง
-            motionStartTime = null; 
+            //motionStartTime = null; 
         }
     }
     
