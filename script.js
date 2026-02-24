@@ -17,6 +17,7 @@ let prevFrame = null;
 let isDetecting = true; 
 let hasGreeted = false;
 let motionStartTime = null; 
+let lastMotionTime = Date.now(); 
 const DETECTION_THRESHOLD = 3000; // ยืนนิ่ง 3 วินาที
 let isBusy = false; 
 
@@ -213,6 +214,7 @@ async function getResponse(userQuery, category) {
     if (!localDatabase) {
         displayResponse("กรุณารอสักครู่ น้องนำทางกำลังเตรียมข้อมูลค่ะ...");
         isBusy = false; 
+        isDetecting = true;
         return;
     }
 
