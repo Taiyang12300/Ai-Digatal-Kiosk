@@ -1,5 +1,5 @@
 /**
- * สมองกลน้องนำทาง - ฉบับปรับปรุง (แก้ปัญหาทักแทรก 100%)
+ * สมองกลน้องนำทาง - ฉบับปรับปรุง (แก้ไข Syntax + เพิ่ม Log ตรวจสอบ)
  * (Horizontal Search + Idle Reset + Motion Detection + Busy Lock)
  */
 
@@ -8,7 +8,7 @@ const GAS_URL = "https://script.google.com/macros/s/AKfycbzNIrKYpb8OeoLXTlso7xtb
 
 // --- ตัวแปรสำหรับระบบ Motion Detection & Idle ---
 let idleTimer; 
-const IDLE_TIME_LIMIT = 60000; // 1 นาที (ปรับเป็น 60,000ms เพื่อความเหมาะสม)
+const IDLE_TIME_LIMIT = 60000; // 1 นาที
 
 let video = document.getElementById('video');
 let canvas = document.getElementById('motionCanvas');
@@ -17,35 +17,34 @@ let prevFrame = null;
 let isDetecting = true; 
 let hasGreeted = false;
 let motionStartTime = null; 
-const DETECTION_THRESHOLD = 1500; // ต้องยืนนิ่ง 1.5 วินาทีถึงจะทัก
-let isBusy = false; // ตัวแปรหลักในการล็อคไม่ให้ทักแทรก
+const DETECTION_THRESHOLD = 1500; // ยืนนิ่ง 1.5 วินาที
+let isBusy = false; 
 
 // 1. เริ่มต้นระบบและโหลดคลังข้อมูล
 async function initDatabase() {
-    console.log("DEBUG: [Init] กำลังโหลดฐานข้อมูล...);
+    console.log("DEBUG: [Init] กำลังโหลดฐานข้อมูล...");
     try {
         const res = await fetch(GAS_URL, { redirect: 'follow' });
         const json = await res.json();
         if (json.database) {
             localDatabase = json.database;
-            console.log("น้องนำทาง: คลังข้อมูลพร้อมใช้งาน");
+            console.log("DEBUG: [Init] คลังข้อมูลพร้อมใช้งาน");
             resetToHome();
             renderFAQButtons();
             initCamera(); 
         }
     } catch (e) {
-        console.error("Database Load Error:", e);
+        console.error("DEBUG ERROR: Database Load Error:", e);
     }
 }
 
 // 2. ระบบ Idle Timeout & Reset
 function resetToHome() {
-    console.log("น้องนำทาง: รีเซ็ตสถานะหน้าจอเริ่มต้น");
+    console.log("DEBUG: [System] รีเซ็ตหน้าจอเริ่มต้น (Idle Reset)");
     window.speechSynthesis.cancel(); 
     displayResponse("กดที่ปุ่มไมค์เพื่อสอบถามข้อมูลได้เลยค่ะ");
     updateLottie('idle');
     
-    // ปลดล็อคสถานะทั้งหมดเพื่อให้พร้อมรับคนใหม่
     isBusy = false; 
     hasGreeted = false; 
     isDetecting = true; 
@@ -66,16 +65,15 @@ async function initCamera() {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         if (video) {
             video.srcObject = stream;
-            console.log("น้องนำทาง: ระบบดวงตาพร้อมทำงาน");
+            console.log("DEBUG: [Camera] ระบบดวงตาพร้อมทำงาน");
             requestAnimationFrame(detectMotion);
         }
     } catch (err) {
-        console.warn("ไม่สามารถเข้าถึงกล้องได้:", err);
+        console.warn("DEBUG ERROR: ไม่สามารถเข้าถึงกล้องได้:", err);
     }
 }
 
 function detectMotion() {
-    // ถ้าปิดการตรวจจับ หรือ กำลังยุ่ง (ตอบคำถาม/พูด) ให้หยุดประมวลผลทันที
     if (!isDetecting || !ctx || isBusy) {
         requestAnimationFrame(detectMotion);
         return;
@@ -97,7 +95,7 @@ function detectMotion() {
         }
 
         if (diff > 200) { 
-            onMotionDetected();
+            onMotionDetected(diff);
         } else {
             motionStartTime = null; 
         }
@@ -107,17 +105,17 @@ function detectMotion() {
     requestAnimationFrame(detectMotion);
 }
 
-function onMotionDetected() {
-    // ป้องกันการทำงานซ้อนทับ
+function onMotionDetected(diffValue) {
     if (hasGreeted || !isDetecting || isBusy) return;
 
     const currentTime = Date.now();
     if (motionStartTime === null) {
         motionStartTime = currentTime;
-         console.log('DEBUG: [Motion] ตรวจพบคน! (Pixel Diff: ${diffValue}) เริ่มนับถอยหลังทักทาย...');
+        console.log(`DEBUG: [Motion] พบการเคลื่อนไหว (Diff: ${diffValue}) เริ่มนับเวลาทักทาย...`);
     } else {
         const duration = currentTime - motionStartTime;
         if (duration >= DETECTION_THRESHOLD) {
+            console.log(`DEBUG: [Motion] ยืนนิ่งครบ ${DETECTION_THRESHOLD}ms -> เริ่มทักทาย`);
             greetUser();
             motionStartTime = null; 
         }
@@ -127,10 +125,10 @@ function onMotionDetected() {
 function greetUser() {
     if (hasGreeted || isBusy) return; 
     
-    isBusy = true; // ล็อคสถานะทันที
-    isDetecting = false; // ปิดดวงตาชั่วคราว
+    isBusy = true; 
+    isDetecting = false; 
     
-    console.log("น้องนำทาง: เริ่มการทักทาย");
+    console.log("DEBUG: [Greet] กำลังสุ่มคำทักทาย...");
     updateLottie('talking');
 
     const greetings = [
@@ -149,13 +147,12 @@ function greetUser() {
     hasGreeted = true; 
 }
 
-// 4. ฟังก์ชันค้นหาคำตอบ (เพิ่มระบบ Busy Lock ทันทีที่กดถาม)
+// 4. ฟังก์ชันค้นหาคำตอบ
 async function getResponse(userQuery, category) {
-    // --- จุดที่แก้ไข: ล็อคทุกอย่างทันทีที่เริ่มค้นหาคำตอบ ---
+    console.log(`DEBUG: [Search] รับคำถาม -> "${userQuery}"`);
     isBusy = true;
     isDetecting = false;
-    window.speechSynthesis.cancel(); // หยุดเสียงทักทายเดิมถ้ามี
-    // --------------------------------------------------
+    window.speechSynthesis.cancel(); 
 
     if (!localDatabase) {
         displayResponse("กรุณารอสักครู่ น้องนำทางกำลังเตรียมข้อมูลค่ะ...");
@@ -167,7 +164,7 @@ async function getResponse(userQuery, category) {
     hasGreeted = true; 
     
     const query = userQuery.toLowerCase().trim();
-    let bestMatch = { answer: "", score: 0 };
+    let bestMatch = { answer: "", score: 0, sheet: "" };
     let foundExact = false;
 
     const allSheets = Object.keys(localDatabase);
@@ -196,22 +193,25 @@ async function getResponse(userQuery, category) {
             }
 
             if (score > bestMatch.score) {
-                bestMatch = { answer: ans, score: score };
+                bestMatch = { answer: ans, score: score, sheet: sheetName };
             }
         });
     });
+
+    console.log(`DEBUG: [Search] ค้นหาพบที่ Sheet: ${bestMatch.sheet} (Score: ${bestMatch.score.toFixed(2)})`);
 
     if (bestMatch.score >= 0.50) {
         displayResponse(bestMatch.answer);
         speak(bestMatch.answer);
     } else {
         const fallback = "ขออภัยค่ะ น้องนำทางไม่พบข้อมูลเรื่องนี้ในระบบ กรุณาลองใช้คำถามอื่นนะคะ";
+        console.log("DEBUG: [Search] ไม่พบคำตอบที่ใกล้เคียงเกณฑ์");
         displayResponse(fallback);
         speak(fallback);
     }
 }
 
-// 5. ระบบคำนวณ ความเหมือน (Levenshtein Distance)
+// 5. คำนวณความเหมือน
 function calculateSimilarity(s1, s2) {
     let longer = s1.toLowerCase().trim();
     let shorter = s2.toLowerCase().trim();
@@ -270,20 +270,22 @@ function speak(text) {
     msg.rate = 1.0; 
 
     msg.onstart = () => { 
+        console.log("DEBUG: [Voice] กำลังเริ่มพูด...");
         updateLottie('talking'); 
         restartIdleTimer();
     };
 
     msg.onend = () => { 
+        console.log("DEBUG: [Voice] พูดจบแล้ว ปลดล็อคระบบ");
         updateLottie('idle'); 
-        isBusy = false; // ปลดล็อคเมื่อพูดจบสนิท
+        isBusy = false; 
         restartIdleTimer();
     };
     
     window.speechSynthesis.speak(msg);
 }
 
-// 7. Lottie & FAQ 
+// 7. Lottie & FAQ
 function updateLottie(state) {
     const player = document.querySelector('lottie-player') || document.getElementById('lottie-canvas');
     if (!player || !localDatabase || !localDatabase["Lottie_State"]) return;
@@ -313,7 +315,10 @@ function renderFAQButtons() {
             const btn = document.createElement('button');
             btn.className = 'faq-btn';
             btn.innerText = topic.toString().trim();
-            btn.onclick = () => getResponse(topic.toString().trim());
+            btn.onclick = () => {
+                console.log(`DEBUG: [UI] คลิกปุ่ม FAQ: ${topic}`);
+                getResponse(topic.toString().trim());
+            };
             container.appendChild(btn);
         }
     });
