@@ -1,6 +1,6 @@
 /**
- * สมองกลน้องนำทาง - ฉบับสมบูรณ์ (AI Full Feature)
- * (Horizontal Search + Idle Reset + Motion Detection + FAQ Column A)
+ * สมองกลน้องนำทาง - ฉบับปรับปรุง (แก้ปัญหาทักแทรก 100%)
+ * (Horizontal Search + Idle Reset + Motion Detection + Busy Lock)
  */
 
 let localDatabase = null;
@@ -8,7 +8,7 @@ const GAS_URL = "https://script.google.com/macros/s/AKfycbzNIrKYpb8OeoLXTlso7xtb
 
 // --- ตัวแปรสำหรับระบบ Motion Detection & Idle ---
 let idleTimer; 
-const IDLE_TIME_LIMIT = 6000; // 1 นาที
+const IDLE_TIME_LIMIT = 60000; // 1 นาที (ปรับเป็น 60,000ms เพื่อความเหมาะสม)
 
 let video = document.getElementById('video');
 let canvas = document.getElementById('motionCanvas');
@@ -17,8 +17,8 @@ let prevFrame = null;
 let isDetecting = true; 
 let hasGreeted = false;
 let motionStartTime = null; 
-const DETECTION_THRESHOLD = 2000; // ต้องยืนนิ่ง/ขยับหน้ากล้องนาน 2 วินาทีถึงจะทัก
-let isBusy = false; // เพิ่มตัวแปรนี้เพื่อเช็คว่าน้องกำลังยุ่งอยู่หรือไม่
+const DETECTION_THRESHOLD = 2000; // ต้องยืนนิ่ง 2 วินาทีถึงจะทัก
+let isBusy = false; // ตัวแปรหลักในการล็อคไม่ให้ทักแทรก
 
 // 1. เริ่มต้นระบบและโหลดคลังข้อมูล
 async function initDatabase() {
@@ -43,7 +43,9 @@ function resetToHome() {
     window.speechSynthesis.cancel(); 
     displayResponse("กดที่ปุ่มไมค์เพื่อสอบถามข้อมูลได้เลยค่ะ");
     updateLottie('idle');
-    isBusy = false; //ปลดล็อคสถานะ
+    
+    // ปลดล็อคสถานะทั้งหมดเพื่อให้พร้อมรับคนใหม่
+    isBusy = false; 
     hasGreeted = false; 
     isDetecting = true; 
     motionStartTime = null;
@@ -72,13 +74,12 @@ async function initCamera() {
 }
 
 function detectMotion() {
-    // 1. ถ้าไม่ได้อยู่ในโหมดตรวจจับ หรือไม่มี Canvas ให้รอรอบถัดไป
-    if (!isDetecting || !ctx) {
+    // ถ้าปิดการตรวจจับ หรือ กำลังยุ่ง (ตอบคำถาม/พูด) ให้หยุดประมวลผลทันที
+    if (!isDetecting || !ctx || isBusy) {
         requestAnimationFrame(detectMotion);
         return;
     }
 
-    // วาดภาพจากวิดีโอลง Canvas เพื่ออ่านพิกเซล
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     const currentFrame = ctx.getImageData(0, 0, canvas.width, canvas.height);
     
@@ -87,24 +88,16 @@ function detectMotion() {
         const data = currentFrame.data;
         const prevData = prevFrame.data;
 
-        // 2. คำนวณหาความต่างของภาพ (ขยับทีละ 4 คือ R,G,B,A)
         for (let i = 0; i < data.length; i += 4) {
             const rDiff = Math.abs(data[i] - prevData[i]);
             const gDiff = Math.abs(data[i+1] - prevData[i+1]);
             const bDiff = Math.abs(data[i+2] - prevData[i+2]);
-            
-            // ถ้าความต่างของสีรวมกันเกิน 100 ถือว่าจุดนั้นมีการขยับ
             if (rDiff + gDiff + bDiff > 100) diff++;
         }
 
-        // --- จุดทดสอบสถานะ ---
-        // console.log("คะแนนความเคลื่อนไหวปัจจุบัน:", diff); 
-
-        // 3. ปรับเกณฑ์ (Threshold) ให้เหมาะสม
-        if (diff > 200) { // ลดจาก 500 เหลือ 200 เพื่อให้ทักง่ายขึ้น
+        if (diff > 200) { 
             onMotionDetected();
         } else {
-            // ถ้านิ่งเกินไป (ไม่มีคนขยับ) ให้ล้างเวลาทิ้ง
             motionStartTime = null; 
         }
     }
@@ -114,7 +107,7 @@ function detectMotion() {
 }
 
 function onMotionDetected() {
-    // ถ้าน้องทักไปแล้ว หรือ ปิดการตรวจจับ หรือ น้องกำลังยุ่ง (ตอบคำถาม/พูด) ให้หยุดทำงานทันที
+    // ป้องกันการทำงานซ้อนทับ
     if (hasGreeted || !isDetecting || isBusy) return;
 
     const currentTime = Date.now();
@@ -130,13 +123,12 @@ function onMotionDetected() {
 }
 
 function greetUser() {
-    // ป้องกันการทักซ้อนซ้อน
-     if (hasGreeted || isBusy) return; // เช็คซ้ำเพื่อความชัวร์
-    isBusy = true; // ล็อคสถานะว่ากำลังยุ่ง
+    if (hasGreeted || isBusy) return; 
+    
+    isBusy = true; // ล็อคสถานะทันที
+    isDetecting = false; // ปิดดวงตาชั่วคราว
     
     console.log("น้องนำทาง: เริ่มการทักทาย");
-    
-    // 1. เปลี่ยนท่าทางเป็นพูดทันที (ดึงจาก Lottie_State ที่เราอัปเดตใหม่)
     updateLottie('talking');
 
     const greetings = [
@@ -146,23 +138,26 @@ function greetUser() {
     ];
     const randomGreeting = greetings[Math.floor(Math.random() * greetings.length)];
     
-    // 2. แสดงข้อความบนจอ
     displayResponse(randomGreeting);
 
-    // 3. สั่งพูด (ใส่ Delay เล็กน้อยเผื่อระบบเสียงยังไม่พร้อม)
     setTimeout(() => {
         speak(randomGreeting);
     }, 100);
 
-    // 4. ล็อกสถานะ เพื่อไม่ให้ทักซ้ำจนกว่าจะรีเซ็ต (Idle)
     hasGreeted = true; 
-    isDetecting = false; 
 }
 
-// 4. ฟังก์ชันค้นหาคำตอบ (Smart Horizontal Search)
+// 4. ฟังก์ชันค้นหาคำตอบ (เพิ่มระบบ Busy Lock ทันทีที่กดถาม)
 async function getResponse(userQuery, category) {
+    // --- จุดที่แก้ไข: ล็อคทุกอย่างทันทีที่เริ่มค้นหาคำตอบ ---
+    isBusy = true;
+    isDetecting = false;
+    window.speechSynthesis.cancel(); // หยุดเสียงทักทายเดิมถ้ามี
+    // --------------------------------------------------
+
     if (!localDatabase) {
         displayResponse("กรุณารอสักครู่ น้องนำทางกำลังเตรียมข้อมูลค่ะ...");
+        isBusy = false; 
         return;
     }
 
@@ -173,24 +168,13 @@ async function getResponse(userQuery, category) {
     let bestMatch = { answer: "", score: 0 };
     let foundExact = false;
 
-    // ค้นหาในทุกชีตที่มีข้อมูล (หรือระบุเฉพาะเจาะจง)
     const allSheets = Object.keys(localDatabase);
 
     allSheets.forEach(sheetName => {
-        // ข้ามชีตตั้งค่าและชีตบันทึก Log
         if (["Lottie_State", "Config", "FAQ"].includes(sheetName)) return;
         if (foundExact) return;
 
         const data = localDatabase[sheetName]; 
-        
-        /**
-         * วิเคราะห์โครงสร้างจาก JSON ที่คุณส่งมา:
-         * data เป็น Array ของแต่ละ "ชุดข้อมูล"
-         * ใน 1 ชุดข้อมูล (เช่น data[0]):
-         * index 0 = คำถาม (เช่น "ทำใบขับขี่ใหม่")
-         * index 1 = คำตอบ (เนื้อหาละเอียด)
-         * index 2 = สถานะ (เช่น "talking")
-         */
         data.forEach((item) => {
             const key = item[0] ? item[0].toString().toLowerCase().trim() : "";
             const ans = item[1] ? item[1].toString().trim() : "";
@@ -198,16 +182,13 @@ async function getResponse(userQuery, category) {
             if (!key || !ans) return;
 
             let score = 0;
-            // 1. ตรวจสอบว่าตรงกันเป๊ะไหม
             if (query === key) {
                 score = 1.0;
                 foundExact = true;
             } 
-            // 2. ตรวจสอบ Keyword (Partial Match)
             else if (query.includes(key) || key.includes(query)) {
                 score = key.length > 3 ? 0.90 : 0.65;
             } 
-            // 3. ใช้ Fuzzy Search (ถ้ามีฟังก์ชัน calculateSimilarity)
             else if (typeof calculateSimilarity === "function") {
                 score = calculateSimilarity(query, key);
             }
@@ -218,7 +199,6 @@ async function getResponse(userQuery, category) {
         });
     });
 
-    // แสดงผลและออกเสียง
     if (bestMatch.score >= 0.50) {
         displayResponse(bestMatch.answer);
         speak(bestMatch.answer);
@@ -228,7 +208,6 @@ async function getResponse(userQuery, category) {
         speak(fallback);
     }
 }
-
 
 // 5. ระบบคำนวณ ความเหมือน (Levenshtein Distance)
 function calculateSimilarity(s1, s2) {
@@ -271,9 +250,8 @@ function displayResponse(text) {
 
 function speak(text) {
     window.speechSynthesis.cancel(); 
-    
-    // 1. ตั้งค่าว่า "กำลังยุ่ง" เพื่อหยุดการตรวจจับ Motion ทันที
     isBusy = true; 
+    isDetecting = false; 
     
     const cleanText = text.replace(/[*#-]/g, ""); 
     const msg = new SpeechSynthesisUtterance(cleanText);
@@ -292,46 +270,32 @@ function speak(text) {
     msg.onstart = () => { 
         updateLottie('talking'); 
         restartIdleTimer();
-        // 2. ปิดการตรวจจับชั่วคราวขณะน้องกำลังพูด
-        isDetecting = false; 
     };
 
     msg.onend = () => { 
         updateLottie('idle'); 
+        isBusy = false; // ปลดล็อคเมื่อพูดจบสนิท
         restartIdleTimer();
-        // 3. พูดจบแล้ว ปลดล็อกสถานะยุ่ง 
-        // แต่ยังไม่เปิด isDetecting = true จนกว่าจะ resetToHome 
-        // เพื่อป้องกันน้องทัก "สวัสดี" ใส่คนเดิมที่เพิ่งฟังจบ
-        isBusy = false; 
     };
     
     window.speechSynthesis.speak(msg);
 }
 
-// 7. Lottie & FAQ Buttons (ดึงจากคอลัมน์ A ข้ามหัวแถว)
+// 7. Lottie & FAQ 
 function updateLottie(state) {
     const player = document.querySelector('lottie-player') || document.getElementById('lottie-canvas');
-    if (!player || !localDatabase || !localDatabase["Lottie_State"]) {
-        console.warn("น้องนำทาง: ไม่พบตัวเล่น Lottie หรือฐานข้อมูลยังไม่พร้อม");
-        return;
-    }
+    if (!player || !localDatabase || !localDatabase["Lottie_State"]) return;
 
-    // ค้นหาแถวที่มีชื่อ State ตรงกัน (เพิ่ม .trim() เพื่อความแม่นยำ)
     const match = localDatabase["Lottie_State"].find(row => 
         row[0] && row[0].toString().toLowerCase().trim() === state.toLowerCase().trim()
     );
 
     if (match && match[1]) {
-        console.log(`น้องนำทาง: เปลี่ยนสถานะ Lottie เป็น -> ${state}`);
-        // สำหรับ <lottie-player> การใช้ .load(url) คือวิธีที่ถูกต้องและไวที่สุด
         if (typeof player.load === 'function') {
             player.load(match[1]);
         } else {
-            // กรณีเป็น lottie-canvas หรือ element อื่นๆ
             player.src = match[1];
         }
-    } else {
-        console.error(`น้องนำทาง: ไม่พบ URL สำหรับสถานะ "${state}" ในฐานข้อมูล`);
     }
 }
 
