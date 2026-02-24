@@ -131,39 +131,69 @@ async function getResponse(userQuery, category) {
         return;
     }
 
+    restartIdleTimer(); 
+    hasGreeted = true; 
+    
     const query = userQuery.toLowerCase().trim();
     let bestMatch = { answer: "", score: 0 };
+    let foundExact = false;
 
-    // ค้นหาในหมวดที่เลือก และหมวดเสริม (KnowledgeBase)
-    const targets = [category, "KnowledgeBase"];
+    // ค้นหาในทุกชีตที่มีข้อมูล (หรือระบุเฉพาะเจาะจง)
+    const allSheets = Object.keys(localDatabase);
 
-    targets.forEach(cat => {
-        if (localDatabase[cat]) {
-            const data = localDatabase[cat]; 
-            // โครงสร้าง JSON ของคุณคือ [ [คำถาม1, คำตอบ1, สถานะ], [คำถาม2, คำตอบ2] ]
-            data.forEach((row, index) => {
-                if (index === 0 && row[0] === "คำถาม") return; // ข้ามหัวตาราง
+    allSheets.forEach(sheetName => {
+        // ข้ามชีตตั้งค่าและชีตบันทึก Log
+        if (["Lottie_State", "Config", "FAQ"].includes(sheetName)) return;
+        if (foundExact) return;
 
-                const key = row[0] ? row[0].toString().toLowerCase().trim() : "";
-                const ans = row[1] ? row[1].toString().trim() : "";
+        const data = localDatabase[sheetName]; 
+        
+        /**
+         * วิเคราะห์โครงสร้างจาก JSON ที่คุณส่งมา:
+         * data เป็น Array ของแต่ละ "ชุดข้อมูล"
+         * ใน 1 ชุดข้อมูล (เช่น data[0]):
+         * index 0 = คำถาม (เช่น "ทำใบขับขี่ใหม่")
+         * index 1 = คำตอบ (เนื้อหาละเอียด)
+         * index 2 = สถานะ (เช่น "talking")
+         */
+        data.forEach((item) => {
+            const key = item[0] ? item[0].toString().toLowerCase().trim() : "";
+            const ans = item[1] ? item[1].toString().trim() : "";
+            
+            if (!key || !ans) return;
 
-                if (!key || !ans) return;
+            let score = 0;
+            // 1. ตรวจสอบว่าตรงกันเป๊ะไหม
+            if (query === key) {
+                score = 1.0;
+                foundExact = true;
+            } 
+            // 2. ตรวจสอบ Keyword (Partial Match)
+            else if (query.includes(key) || key.includes(query)) {
+                score = key.length > 3 ? 0.90 : 0.65;
+            } 
+            // 3. ใช้ Fuzzy Search (ถ้ามีฟังก์ชัน calculateSimilarity)
+            else if (typeof calculateSimilarity === "function") {
+                score = calculateSimilarity(query, key);
+            }
 
-                let score = 0;
-                // ตรวจสอบว่าคำถามมีคำที่ระบุไหม (Keyword Match)
-                if (query.includes(key) || key.includes(query)) {
-                    score = 0.95; 
-                } else {
-                    // ถ้าไม่ตรงเป๊ะ ให้ใช้ Fuzzy Search
-                    score = calculateSimilarity(query, key);
-                }
-
-                if (score > bestMatch.score) {
-                    bestMatch = { answer: ans, score: score };
-                }
-            });
-        }
+            if (score > bestMatch.score) {
+                bestMatch = { answer: ans, score: score };
+            }
+        });
     });
+
+    // แสดงผลและออกเสียง
+    if (bestMatch.score >= 0.50) {
+        displayResponse(bestMatch.answer);
+        speak(bestMatch.answer);
+    } else {
+        const fallback = "ขออภัยค่ะ น้องนำทางไม่พบข้อมูลเรื่องนี้ในระบบ กรุณาลองใช้คำถามอื่นนะคะ";
+        displayResponse(fallback);
+        speak(fallback);
+    }
+}
+
 
 // 5. ระบบคำนวณ ความเหมือน (Levenshtein Distance)
 function calculateSimilarity(s1, s2) {
