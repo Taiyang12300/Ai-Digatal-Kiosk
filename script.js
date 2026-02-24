@@ -153,6 +153,14 @@ async function getResponse(userQuery) {
     isBusy = true;
     window.speechSynthesis.cancel(); 
 
+    // --- ส่วนที่เพิ่มใหม่: ส่งคำถามไปบันทึกลง Google Sheets (FAQ คอลัมน์ B) ---
+    if (userQuery && userQuery.trim() !== "") {
+        fetch(`${GAS_URL}?query=${encodeURIComponent(userQuery.trim())}&action=logOnly`, { 
+            mode: 'no-cors' 
+        }).catch(err => console.warn("บันทึก FAQ ล้มเหลว:", err));
+    }
+    // -----------------------------------------------------------------
+
     if (!localDatabase) {
         displayResponse("กรุณารอสักครู่ น้องนำทางกำลังเตรียมข้อมูลครับ...");
         isBusy = false; 
