@@ -4,7 +4,7 @@
  */
 
 let localDatabase = null;
-const GAS_URL = "https://script.google.com/macros/s/AKfycbxUiKmBjBXWwyfv111cvyCk6BALKPreDTqUgLh8sLjzkZh5bwktPMzxQW8nwtalbbVMgg/exec"; 
+const GAS_URL = "https://script.google.com/macros/s/AKfycbyoqeKLGpfGLIAO6d9nv0BkLers7PgezkPeuqZQxTvOlkBm5Atp-yMXxq_fpK806NLbNA/exec"; 
 
 // --- ตัวแปรระบบ ---
 let idleTimer; 
