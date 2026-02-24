@@ -8,7 +8,7 @@ const GAS_URL = "https://script.google.com/macros/s/AKfycbzNIrKYpb8OeoLXTlso7xtb
 
 // --- ตัวแปรสำหรับระบบ Motion Detection & Idle ---
 let idleTimer; 
-const IDLE_TIME_LIMIT = 60000; // 1 นาที
+const IDLE_TIME_LIMIT = 30000; // 30 วินาที
 
 let video = document.getElementById('video');
 let canvas = document.getElementById('motionCanvas');
@@ -17,7 +17,7 @@ let prevFrame = null;
 let isDetecting = true; 
 let hasGreeted = false;
 let motionStartTime = null; 
-const DETECTION_THRESHOLD = 1500; // ยืนนิ่ง 1.5 วินาที
+const DETECTION_THRESHOLD = 1000; // ยืนนิ่ง 1 วินาที
 let isBusy = false; 
 
 // 1. เริ่มต้นระบบและโหลดคลังข้อมูล
@@ -91,13 +91,13 @@ function detectMotion() {
             const rDiff = Math.abs(data[i] - prevData[i]);
             const gDiff = Math.abs(data[i+1] - prevData[i+1]);
             const bDiff = Math.abs(data[i+2] - prevData[i+2]);
-            if (rDiff + gDiff + bDiff > 100) diff++;
+            if (rDiff + gDiff + bDiff > 500) diff++;
         }
 
         if (diff > 200) { 
             onMotionDetected(diff);
         } else {
-            motionStartTime = null; 
+            //motionStartTime = null; 
         }
     }
     
