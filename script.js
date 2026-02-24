@@ -74,7 +74,6 @@ async function initCamera() {
 }
 
 function detectMotion() {
-function detectMotion() {
     if (!isDetecting || !ctx || isBusy) {
         requestAnimationFrame(detectMotion);
         return;
@@ -92,15 +91,30 @@ function detectMotion() {
             const rDiff = Math.abs(data[i] - prevData[i]);
             const gDiff = Math.abs(data[i+1] - prevData[i+1]);
             const bDiff = Math.abs(data[i+2] - prevData[i+2]);
-            // ใช้ค่า 100 เพื่อให้ไวต่อแสงปกติ
             if (rDiff + gDiff + bDiff > 100) diff++;
         }
 
+        // --- ส่วนที่ปรับจูนการตรวจจับคนหน้าตู้ ---
         if (diff > 200) { 
+            // กรณีพบความเคลื่อนไหว (คนขยับ)
             onMotionDetected(diff);
+            lastMotionTime = Date.now(); // บันทึกเวลาที่พบการขยับล่าสุด
         } else {
-            // --- จุดที่แก้ไข: ไม่ต้องรีเซ็ต motionStartTime ทันทีที่นี่ ---
-            // ปล่อยให้ฟังก์ชัน onMotionDetected เป็นตัวจัดการเรื่องเวลาเอง
+            // กรณี "นิ่ง" (คนยืนรอเฉยๆ)
+            // ถ้าเคยพบการเคลื่อนไหวแล้ว (motionStartTime ไม่เป็น null) 
+            // ให้ถือว่า "คนยังอยู่" และปล่อยให้ onMotionDetected นับเวลาต่อไป
+            if (motionStartTime !== null) {
+                onMotionDetected(0); // ส่ง 0 ไปเพื่อให้ onMotionDetected ทำงานต่อ
+            }
+
+            // แต่ถ้า "นิ่งสนิท" นานเกิน 3 วินาที แสดงว่าคนเดินออกไปแล้วจริงๆ
+            const timeSinceLastMotion = Date.now() - (window.lastMotionTime || 0);
+            if (timeSinceLastMotion > 3000) {
+                if (motionStartTime !== null) {
+                    console.log("DEBUG: [System] คนเดินออกไปแล้ว (นิ่งเกิน 3 วินาที) -> Reset");
+                    motionStartTime = null;
+                }
+            }
         }
     }
     
@@ -109,24 +123,31 @@ function detectMotion() {
 }
 
 function onMotionDetected(diffValue) {
+    // 1. ถ้าทักไปแล้ว หรือระบบกำลังทำงานอื่นอยู่ ให้ข้ามไป
     if (hasGreeted || !isDetecting || isBusy) return;
 
     const currentTime = Date.now();
     
+    // 2. ถ้ายังไม่เริ่มนับเวลา (จุดเริ่มต้นการตรวจจับคน)
     if (motionStartTime === null) {
         motionStartTime = currentTime;
-        console.log(`DEBUG: [Motion] เริ่มนับเวลา! (Diff: ${diffValue})`);
+        console.log(`DEBUG: [Detection] เริ่มพบวัตถุหน้าตู้ (Diff: ${diffValue})`);
     } else {
         const duration = currentTime - motionStartTime;
         
-        // แสดง Log ทุกๆ 200ms เพื่อดูว่าเวลาสะสมไปถึงไหนแล้ว
+        // 3. แสดง Progress ทุก 200ms เพื่อดูความคืบหน้า
         if (Math.floor(duration % 200) < 30) {
-            console.log(`DEBUG: [Timer] กำลังสะสมเวลา... ${duration}ms`);
+            console.log(`DEBUG: [Tracking] ยืนรอนาน: ${duration}ms / ${DETECTION_THRESHOLD}ms`);
         }
 
+        // 4. เมื่อยืนนานพอจนมั่นใจว่าเป็น "คน" ไม่ใช่แค่สิ่งของเคลื่อนผ่าน
         if (duration >= DETECTION_THRESHOLD) {
-            console.log("DEBUG: [System] ครบเงื่อนไข! เริ่มทักทาย");
+            console.log("DEBUG: [Confirm] ยืนยันพบคนอยู่หน้าตู้ -> สั่งทักทาย");
+            
+            // เรียกฟังก์ชันทักทาย
             greetUser();
+            
+            // เคลียร์ค่าเพื่อรอรับคนถัดไป (หลังจาก Reset)
             motionStartTime = null; 
         }
     }
@@ -261,23 +282,34 @@ function displayResponse(text) {
 }
 
 function speak(text) {
+    // 1. เคลียร์คิวเดิมและหยุดเสียงที่ค้างอยู่
     window.speechSynthesis.cancel(); 
     isBusy = true; 
     isDetecting = false; 
     
     const cleanText = text.replace(/[*#-]/g, ""); 
     const msg = new SpeechSynthesisUtterance(cleanText);
-    msg.lang = 'th-TH';
-
+    
+    // 2. ดึงรายชื่อเสียงใหม่ทุกครั้ง (ป้องกันกรณีโหลดช้า)
     const voices = window.speechSynthesis.getVoices();
-    const femaleVoice = voices.find(v => 
-        (v.lang.includes('th')) && 
-        (v.name.includes('Google') || v.name.includes('Narisa') || v.name.includes('Premium'))
-    );
-    if (femaleVoice) msg.voice = femaleVoice;
+    
+    // 3. กลยุทธ์การเลือกเสียงผู้หญิงภาษาไทย (เรียงลำดับความสำคัญ)
+    const femaleVoice = voices.find(v => v.lang.includes('th') && v.name.includes('Google')) || // อันดับ 1: Google Thai
+                        voices.find(v => v.lang.includes('th') && v.name.includes('Narisa')) || // อันดับ 2: Microsoft Narisa
+                        voices.find(v => v.lang.includes('th') && v.name.includes('Premium')) || // อันดับ 3: Premium Voice
+                        voices.find(v => v.lang.includes('th')); // สุดท้าย: เสียงภาษาไทยอะไรก็ได้ที่มี
 
+    if (femaleVoice) {
+        msg.voice = femaleVoice;
+        console.log(`DEBUG: [Voice] เลือกใช้เสียง: ${femaleVoice.name}`);
+    } else {
+        console.warn("DEBUG: [Voice] ไม่พบเสียงภาษาไทยในระบบเลย!");
+    }
+
+    msg.lang = 'th-TH';
     msg.pitch = 1.05; 
     msg.rate = 1.0; 
+    msg.volume = 1.0; // มั่นใจว่าระดับเสียงเต็ม 100%
 
     msg.onstart = () => { 
         console.log("DEBUG: [Voice] กำลังเริ่มพูด...");
@@ -291,9 +323,17 @@ function speak(text) {
         isBusy = false; 
         restartIdleTimer();
     };
+
+    msg.onerror = (e) => {
+        console.error("DEBUG: [Voice Error]", e);
+        isBusy = false; // ป้องกันระบบล็อคค้างถ้าเสียงมีปัญหา
+    };
     
+    // 4. บังคับ Resume ระบบเสียง (แก้อาการเสียงค้าง/โดนบล็อก)
+    window.speechSynthesis.resume();
     window.speechSynthesis.speak(msg);
 }
+
 
 // 7. Lottie & FAQ
 function updateLottie(state) {
