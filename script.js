@@ -17,7 +17,7 @@ let prevFrame = null;
 let isDetecting = true; 
 let hasGreeted = false;
 let motionStartTime = null; 
-const DETECTION_THRESHOLD = 2000; // ต้องยืนนิ่ง 2 วินาทีถึงจะทัก
+const DETECTION_THRESHOLD = 1500; // ต้องยืนนิ่ง 1.5 วินาทีถึงจะทัก
 let isBusy = false; // ตัวแปรหลักในการล็อคไม่ให้ทักแทรก
 
 // 1. เริ่มต้นระบบและโหลดคลังข้อมูล
