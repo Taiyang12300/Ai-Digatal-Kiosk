@@ -74,6 +74,7 @@ async function initCamera() {
 }
 
 function detectMotion() {
+function detectMotion() {
     if (!isDetecting || !ctx || isBusy) {
         requestAnimationFrame(detectMotion);
         return;
@@ -91,13 +92,15 @@ function detectMotion() {
             const rDiff = Math.abs(data[i] - prevData[i]);
             const gDiff = Math.abs(data[i+1] - prevData[i+1]);
             const bDiff = Math.abs(data[i+2] - prevData[i+2]);
+            // ใช้ค่า 100 เพื่อให้ไวต่อแสงปกติ
             if (rDiff + gDiff + bDiff > 100) diff++;
         }
 
         if (diff > 200) { 
             onMotionDetected(diff);
         } else {
-            motionStartTime = null; 
+            // --- จุดที่แก้ไข: ไม่ต้องรีเซ็ต motionStartTime ทันทีที่นี่ ---
+            // ปล่อยให้ฟังก์ชัน onMotionDetected เป็นตัวจัดการเรื่องเวลาเอง
         }
     }
     
@@ -109,13 +112,20 @@ function onMotionDetected(diffValue) {
     if (hasGreeted || !isDetecting || isBusy) return;
 
     const currentTime = Date.now();
+    
     if (motionStartTime === null) {
         motionStartTime = currentTime;
-        console.log(`DEBUG: [Motion] พบการเคลื่อนไหว (Diff: ${diffValue}) เริ่มนับเวลาทักทาย...`);
+        console.log(`DEBUG: [Motion] เริ่มนับเวลา! (Diff: ${diffValue})`);
     } else {
         const duration = currentTime - motionStartTime;
+        
+        // แสดง Log ทุกๆ 200ms เพื่อดูว่าเวลาสะสมไปถึงไหนแล้ว
+        if (Math.floor(duration % 200) < 30) {
+            console.log(`DEBUG: [Timer] กำลังสะสมเวลา... ${duration}ms`);
+        }
+
         if (duration >= DETECTION_THRESHOLD) {
-            console.log(`DEBUG: [Motion] ยืนนิ่งครบ ${DETECTION_THRESHOLD}ms -> เริ่มทักทาย`);
+            console.log("DEBUG: [System] ครบเงื่อนไข! เริ่มทักทาย");
             greetUser();
             motionStartTime = null; 
         }
