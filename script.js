@@ -1,9 +1,29 @@
 /**
- * สมองกลน้องนำทาง - ฉบับสมบูรณ์ (รวมความเร็วและการบันทึกข้อมูล)
+ * สมองกลน้องนำทาง - ฉบับปรับปรุง (Horizontal Search + Idle Reset)
  */
 
 let localDatabase = null;
 const GAS_URL = "https://script.google.com/macros/s/AKfycbzNIrKYpb8OeoLXTlso7xtb4Ir2aeL4uSOjtzZejf8K8wVfmCWcOsGmQsAPPAb8L9Coew/exec"; 
+
+// --- ส่วนที่เพิ่ม: ระบบ Idle Timeout (รีเซ็ตหน้าจอ) ---
+let idleTimer; 
+const IDLE_TIME_LIMIT = 120000; // 2 นาที (หน่วยมิลลิวินาที)
+
+function resetToHome() {
+    console.log("น้องนำทาง: รีเซ็ตสถานะหน้าจอเริ่มต้น");
+    window.speechSynthesis.cancel(); // หยุดเสียง
+    displayResponse("กดที่ปุ่มไมค์เพื่อสอบถามข้อมูลได้เลยค่ะ");
+    updateLottie('idle');
+}
+
+function restartIdleTimer() {
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(resetToHome, IDLE_TIME_LIMIT);
+}
+
+// ตรวจจับการแตะหน้าจอเพื่อเริ่มนับเวลาใหม่
+window.addEventListener('mousedown', restartIdleTimer);
+// ----------------------------------------------
 
 // 1. โหลดคลังข้อมูล
 async function initDatabase() {
@@ -13,12 +33,7 @@ async function initDatabase() {
         if (json.database) {
             localDatabase = json.database;
             console.log("น้องนำทาง: คลังข้อมูลพร้อมใช้งาน");
-            
-            const welcomeBox = document.getElementById('response-text') || document.getElementById('output');
-            if (welcomeBox) {
-                welcomeBox.innerText = "กดที่ปุ่มไมค์เพื่อสอบถามข้อมูลได้เลยค่ะ";
-            }
-            updateLottie('idle');
+            resetToHome();
             renderFAQButtons();
         }
     } catch (e) {
@@ -26,7 +41,7 @@ async function initDatabase() {
     }
 }
 
-// 2. ฟังก์ชันคำนวณความเหมือน
+// 2. ฟังก์ชันคำนวณความเหมือน (Levenshtein Distance)
 function calculateSimilarity(s1, s2) {
     let longer = s1.toLowerCase().trim();
     let shorter = s2.toLowerCase().trim();
@@ -55,30 +70,38 @@ function calculateSimilarity(s1, s2) {
     return (longerLength - editDistance(longer, shorter)) / longerLength;
 }
 
-// 3. ฟังก์ชันหลักในการค้นหาคำตอบ
-async function getResponse(userQuery, category) {
+// 3. ฟังก์ชันหลักในการค้นหาคำตอบ (ปรับปรุงการค้นหาแนวนอนทุกคอลัมน์)
+async function getResponse(userQuery) {
     if (!localDatabase) {
         displayResponse("กรุณารอสักครู่ น้องนำทางกำลังเตรียมข้อมูลค่ะ...");
         return;
     }
 
-    // บันทึกคำถาม (Background Log)
+    restartIdleTimer(); // เริ่มนับเวลาถอยหลังใหม่
     fetch(`${GAS_URL}?action=logOnly&query=${encodeURIComponent(userQuery)}`, { mode: 'no-cors' }).catch(e => {});
 
     const query = userQuery.toLowerCase().trim();
     let bestMatch = { answer: "", score: 0 };
     let foundExact = false;
 
-    const targets = [category, "KnowledgeBase"];
+    const allSheetNames = Object.keys(localDatabase); 
 
-    for (const cat of targets) {
+    for (const sheetName of allSheetNames) {
+        if (sheetName === "Lottie_State" || sheetName === "Config" || sheetName === "FAQ") continue; 
         if (foundExact) break;
-        if (localDatabase[cat]) {
-            const data = localDatabase[cat]; 
-            for (let i = 1; i < data.length; i++) {
-                const row = data[i];
-                const key = row[0] ? row[0].toString().toLowerCase().trim() : "";
-                const ans = row[1] ? row[1].toString().trim() : "";
+
+        const data = localDatabase[sheetName]; 
+        
+        // แก้ไข: ตรวจสอบข้อมูลแถว 1 (คำถาม) และแถว 2 (คำตอบ)
+        if (data && data[0] && data[1]) {
+            const questions = data[0]; 
+            const answers = data[1];
+
+            // วนลูปจาก j = 0 เพื่อให้อ่านตั้งแต่คอลัมน์ A (ข้อมูลแรก)
+            for (let j = 0; j < questions.length; j++) {
+                const key = questions[j] ? questions[j].toString().toLowerCase().trim() : "";
+                const ans = answers[j] ? answers[j].toString().trim() : "";
+
                 if (!key || !ans) continue;
 
                 let score = 0;
@@ -98,7 +121,6 @@ async function getResponse(userQuery, category) {
     }
 
     if (bestMatch.score >= 0.40) {
-        updateLottie('talking');
         displayResponse(bestMatch.answer);
         speak(bestMatch.answer);
     } else {
@@ -108,7 +130,7 @@ async function getResponse(userQuery, category) {
     }
 }
 
-// 4. แสดงผล
+// 4. แสดงผลข้อความ
 function displayResponse(text) {
     const box = document.getElementById('response-text') || document.getElementById('output');
     if (box) {
@@ -118,45 +140,45 @@ function displayResponse(text) {
     }
 }
 
-// 5. สั่งงานเสียง
+// 5. ระบบเสียง (ปรับปรุงการหยุดเสียงเก่าและนับเวลา Idle ใหม่)
 function speak(text) {
-    // 1. หยุดเสียงเก่าทันที
-    window.speechSynthesis.cancel(); 
+    window.speechSynthesis.cancel(); // หยุดเสียงเก่าทันที
 
-    // 2. ทำความสะอาดสัญลักษณ์ แต่คงตัวเลขและช่องว่างไว้ครบถ้วน
     const cleanText = text.replace(/[*#-]/g, ""); 
-    
-    // 3. สร้างการอ่าน
     const msg = new SpeechSynthesisUtterance(cleanText);
     msg.lang = 'th-TH';
 
-    // 4. บังคับเลือกเสียงผู้หญิง (ถ้ามีในระบบ) เพื่อความลื่นหูแบบมือถือ
     const voices = window.speechSynthesis.getVoices();
     const femaleVoice = voices.find(v => 
         (v.lang === 'th-TH' || v.lang === 'th_TH') && 
-        (v.name.includes('Google') || v.name.includes('Narisa') || v.name.includes('Premium'))
+        (v.name.includes('Google') || v.name.includes('Narisa') || v.name.includes('Premium') || v.name.includes('Hemlata'))
     );
     if (femaleVoice) msg.voice = femaleVoice;
 
-    // 5. ปรับ Pitch ให้เสียงดูนุ่มนวลขึ้น (1.05 - 1.1 จะช่วยให้เสียงผู้ชายดูซอฟต์ลง หรือเสียงผู้หญิงดูใจดีขึ้น)
     msg.pitch = 1.05; 
-    msg.rate = 1.0; // คงความเร็วที่ 1.0 เพื่อไม่ให้ตัวเลขถูกอ่านรวบจนข้าม
+    msg.rate = 1.0; 
 
-    msg.onstart = () => updateLottie('talking');
-    msg.onend = () => updateLottie('idle');
+    msg.onstart = () => {
+        updateLottie('talking');
+        restartIdleTimer(); // รีเซ็ตเวลาขณะเริ่มพูด
+    };
+    msg.onend = () => {
+        updateLottie('idle');
+        restartIdleTimer(); // รีเซ็ตเวลาเมื่อพูดจบ
+    };
 
     window.speechSynthesis.speak(msg);
 }
 
-
-// 6. เปลี่ยนท่าทาง Lottie
+// 6. เปลี่ยนท่าทาง Lottie (รองรับการหาจาก Sheet)
 function updateLottie(state) {
     const player = document.querySelector('lottie-player') || document.getElementById('lottie-canvas');
     if (!player) return;
 
     if (localDatabase && localDatabase["Lottie_State"]) {
         const data = localDatabase["Lottie_State"];
-        const match = data.find(row => row[0].toString().toLowerCase() === state.toLowerCase());
+        // ค้นหาสถานะในแนวตั้งปกติสำหรับ Lottie_State
+        const match = data.find(row => row[0] && row[0].toString().toLowerCase() === state.toLowerCase());
         if (match && match[1] && match[1].includes('http')) {
             player.load(match[1]);
             return;
@@ -165,32 +187,29 @@ function updateLottie(state) {
     state === 'talking' ? player.setSpeed(1.5) : player.setSpeed(1.0);
 }
 
-// 7. สร้างปุ่ม FAQ
+// 7. สร้างปุ่ม FAQ (ดึงหัวข้อจากแถวแรกแนวนอน)
 function renderFAQButtons() {
     const container = document.getElementById('faq-container');
     if (!container || !localDatabase || !localDatabase["FAQ"]) return;
     container.innerHTML = "";
-    localDatabase["FAQ"].forEach((row, index) => {
-        if (index === 0 || !row[0]) return; 
-        const btn = document.createElement('button');
-        btn.className = 'faq-btn';
-        btn.innerText = row[0];
-        btn.onclick = () => {
-            // เรียกใช้ processQuery จากไฟล์ HTML
-            if (typeof processQuery === "function") {
-                processQuery(row[0]); 
-            } else {
-                getResponse(row[0], 'KnowledgeBase');
-            }
-        };
-        container.appendChild(btn);
-    });
+    
+    // ดึงเฉพาะแถวแรกมาทำปุ่ม
+    const faqRow = localDatabase["FAQ"][0]; 
+    if (faqRow) {
+        faqRow.forEach((topic) => {
+            if (!topic) return; 
+            const btn = document.createElement('button');
+            btn.className = 'faq-btn';
+            btn.innerText = topic;
+            btn.onclick = () => getResponse(topic);
+            container.appendChild(btn);
+        });
+    }
 }
 
+// เริ่มต้นระบบ
 initDatabase();
-// เตรียมรายการเสียงให้พร้อมใช้งานทันที
-window.speechSynthesis.onvoiceschanged = () => {
-    const voices = window.speechSynthesis.getVoices();
-    console.log("รายการเสียงถูกอัปเดตแล้ว:", voices.length, "เสียง");
-};
 
+window.speechSynthesis.onvoiceschanged = () => {
+    console.log("Voice list updated");
+};
