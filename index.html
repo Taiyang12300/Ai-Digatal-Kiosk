@@ -116,7 +116,7 @@
 
   <script src="script.js?v=1.8"></script>
 
-  <script>
+    <script>
     let recognition, isListening = false;
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -130,7 +130,7 @@
         isListening = true;
         document.getElementById('micBtn').classList.add('recording');
         document.getElementById('statusText').innerText = "กำลังฟัง... พูดให้จบประโยคนะคะ";
-        // เมื่อเริ่มฟัง ให้หยุดการตรวจจับคนชั่วคราวเพื่อไม่ให้เสียงทักทายแทรก
+        // ปิดระบบตรวจจับคนชั่วคราวขณะฟัง เพื่อไม่ให้เสียงทักทายแทรก
         if (typeof isDetecting !== 'undefined') isDetecting = false; 
       };
 
@@ -140,7 +140,23 @@
         setTimeout(() => { processQuery(text); }, 800); 
       };
 
-      recognition.onend = () => { stopListening(); };
+      // แก้ไข: ถ้าหยุดฟัง (ไม่ว่าพูดจบหรือเงียบไปเอง) ให้เช็คสถานะเพื่อกลับมา idle
+      recognition.onend = () => { 
+        stopListening(); 
+        setTimeout(() => {
+          // ถ้าไม่ได้กำลังค้นหาคำตอบ (isBusy เป็น false) ให้คืนร่างเป็น idle
+          if (typeof isBusy !== 'undefined' && !isBusy) {
+            if (typeof updateLottie === "function") { updateLottie('idle'); }
+          }
+        }, 150);
+      };
+
+      // แก้ไข: ถ้าเกิด Error เช่น ไมค์ไม่ทำงาน หรือเงียบจนหมดเวลา
+      recognition.onerror = (event) => {
+        console.warn("Speech recognition error:", event.error);
+        stopListening();
+        if (typeof updateLottie === "function") { updateLottie('idle'); }
+      };
     }
 
     function handleManualInput() {
@@ -168,9 +184,13 @@
       } else { 
         try { 
           window.speechSynthesis.cancel(); 
+          // แก้ไข: กดปุ่มปุ๊บ เปลี่ยนร่างเป็น thinking ทันที
           if (typeof updateLottie === "function") { updateLottie('thinking'); }
           recognition.start(); 
-        } catch(e) { console.error("Mic error:", e); } 
+        } catch(e) { 
+          console.error("Mic error:", e); 
+          if (typeof updateLottie === "function") { updateLottie('idle'); }
+        } 
       }
     }
 
@@ -178,7 +198,6 @@
       isListening = false;
       document.getElementById('micBtn').classList.remove('recording');
       document.getElementById('statusText').innerText = "แตะไมค์เพื่อเริ่มพูด";
-      // กลับมาเริ่มตรวจจับคนใหม่หลังจากตอบคำถามเสร็จ (จะถูกคุมโดย isBusy ใน script.js)
     }
   </script>
 </body>
