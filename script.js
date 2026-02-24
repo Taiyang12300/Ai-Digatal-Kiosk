@@ -269,18 +269,24 @@ function renderFAQButtons() {
     const container = document.getElementById('faq-container');
     if (!container || !localDatabase || !localDatabase["FAQ"]) return;
     container.innerHTML = "";
-    const faqRow = localDatabase["FAQ"][0]; 
-    if (faqRow) {
-        faqRow.forEach((topic) => {
-            if (!topic) return; 
+    
+    const faqData = localDatabase["FAQ"]; 
+    
+    // ใช้ .slice(1) เพื่อเริ่มอ่านตั้งแต่แถวที่ 2 เป็นต้นไป (ข้ามหัวคอลัมน์แถวแรก)
+    faqData.slice(1).forEach((row) => {
+        const topic = row[0]; // ดึงข้อมูลคอลัมน์ A
+        
+        // ตรวจสอบว่ามีข้อมูล และไม่ใช่ค่าว่าง
+        if (topic && topic.toString().trim() !== "") {
             const btn = document.createElement('button');
             btn.className = 'faq-btn';
-            btn.innerText = topic;
-            btn.onclick = () => getResponse(topic);
+            btn.innerText = topic.toString().trim();
+            btn.onclick = () => getResponse(topic.toString().trim());
             container.appendChild(btn);
-        });
-    }
+        }
+    });
 }
+
 
 initDatabase();
 
