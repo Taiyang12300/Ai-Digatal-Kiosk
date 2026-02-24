@@ -241,10 +241,20 @@ function speak(text) {
 }
 
 function updateLottie(state) {
-    const player = document.querySelector('lottie-player');
+    const player = document.querySelector('lottie-player') || document.getElementById('lottie-canvas');
     if (!player || !localDatabase || !localDatabase["Lottie_State"]) return;
-    const match = localDatabase["Lottie_State"].find(row => row[0].toLowerCase() === state.toLowerCase());
-    if (match && match[1]) player.src = match[1];
+
+    const match = localDatabase["Lottie_State"].find(row => 
+        row[0] && row[0].toString().toLowerCase().trim() === state.toLowerCase().trim()
+    );
+
+    if (match && match[1]) {
+        if (typeof player.load === 'function') {
+            player.load(match[1]);
+        } else {
+            player.src = match[1];
+        }
+    }
 }
 
 function renderFAQButtons() {
