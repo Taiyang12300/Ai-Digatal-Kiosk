@@ -125,67 +125,45 @@ function greetUser() {
 }
 
 // 4. ฟังก์ชันค้นหาคำตอบ (Smart Horizontal Search)
-async function getResponse(userQuery) {
+async function getResponse(userQuery, category) {
     if (!localDatabase) {
         displayResponse("กรุณารอสักครู่ น้องนำทางกำลังเตรียมข้อมูลค่ะ...");
         return;
     }
 
-    restartIdleTimer(); 
-    hasGreeted = true; 
-    
-    fetch(`${GAS_URL}?action=logOnly&query=${encodeURIComponent(userQuery)}`, { mode: 'no-cors' }).catch(e => {});
-
     const query = userQuery.toLowerCase().trim();
     let bestMatch = { answer: "", score: 0 };
-    let foundExact = false;
 
-    const allSheetNames = Object.keys(localDatabase); 
+    // ค้นหาในหมวดที่เลือก และหมวดเสริม (KnowledgeBase)
+    const targets = [category, "KnowledgeBase"];
 
-    for (const sheetName of allSheetNames) {
-        if (["Lottie_State", "Config", "FAQ"].includes(sheetName)) continue; 
-        if (foundExact) break;
+    targets.forEach(cat => {
+        if (localDatabase[cat]) {
+            const data = localDatabase[cat]; 
+            // โครงสร้าง JSON ของคุณคือ [ [คำถาม1, คำตอบ1, สถานะ], [คำถาม2, คำตอบ2] ]
+            data.forEach((row, index) => {
+                if (index === 0 && row[0] === "คำถาม") return; // ข้ามหัวตาราง
 
-        const data = localDatabase[sheetName]; 
-        
-        // อ่านแถว 1 (คำถาม) และแถว 2 (คำตอบ) ตามที่คุณต้องการ
-        if (data && data[0] && data[1]) {
-            const questions = data[0]; 
-            const answers = data[1];
+                const key = row[0] ? row[0].toString().toLowerCase().trim() : "";
+                const ans = row[1] ? row[1].toString().trim() : "";
 
-            for (let j = 0; j < questions.length; j++) {
-                const key = questions[j] ? questions[j].toString().toLowerCase().trim() : "";
-                const ans = answers[j] ? answers[j].toString().trim() : "";
-                
-                if (!key || !ans) continue;
+                if (!key || !ans) return;
 
                 let score = 0;
-                if (query === key) {
-                    score = 1.0;
-                    foundExact = true;
-                } else if (query.includes(key) || key.includes(query)) {
-                    score = key.length > 3 ? 0.85 : 0.60;
+                // ตรวจสอบว่าคำถามมีคำที่ระบุไหม (Keyword Match)
+                if (query.includes(key) || key.includes(query)) {
+                    score = 0.95; 
                 } else {
+                    // ถ้าไม่ตรงเป๊ะ ให้ใช้ Fuzzy Search
                     score = calculateSimilarity(query, key);
                 }
 
                 if (score > bestMatch.score) {
                     bestMatch = { answer: ans, score: score };
                 }
-                if (foundExact) break;
-            }
+            });
         }
-    }
-
-    if (bestMatch.score >= 0.50) {
-        displayResponse(bestMatch.answer);
-        speak(bestMatch.answer);
-    } else {
-        const fallback = "ขออภัยค่ะ น้องนำทางยังไม่มีข้อมูลเรื่องนี้ในระบบ กรุณาลองใช้คำถามอื่น หรือสอบถามเจ้าหน้าที่นะคะ";
-        displayResponse(fallback);
-        speak(fallback);
-    }
-}
+    });
 
 // 5. ระบบคำนวณ ความเหมือน (Levenshtein Distance)
 function calculateSimilarity(s1, s2) {
