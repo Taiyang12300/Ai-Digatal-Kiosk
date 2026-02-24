@@ -99,8 +99,10 @@
 
   <script src="script.js?v=1.7"></script>
 
-  <script>
-    let currentCategory = 'งานใบอนุญาตขับรถ';
+  <video id="video" width="320" height="240" autoplay style="display:none;"></video>
+  <canvas id="motionCanvas" width="320" height="240" style="display:none;"></canvas>
+  
+    <script>
     let recognition, isListening = false;
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -120,8 +122,6 @@
       recognition.onresult = (event) => {
         const text = event.results[0][0].transcript;
         document.getElementById('statusText').innerText = "กำลังสรุปคำถาม...";
-
-        // หน่วงเวลา 0.8 วินาที เพื่อความแม่นยำก่อนส่งไปหาคำตอบ
         setTimeout(() => {
           processQuery(text);
         }, 800); 
@@ -142,54 +142,41 @@
 
     function handleKeyPress(e) { if (e.key === 'Enter') handleManualInput(); }
 
-    // --- ฟังก์ชันส่งคำถามไปประมวลผล ---
+    // --- ฟังก์ชันส่งคำถามไปประมวลผล (ปรับปรุงใหม่) ---
     async function processQuery(query) {
       const output = document.getElementById('response-text');
       output.innerText = "กำลังค้นหาคำตอบ...";
       
-      // เรียกใช้ getResponse จากไฟล์ script.js
+      // เรียกใช้ getResponse โดยไม่ต้องส่ง category แล้ว
       if (typeof getResponse === "function") {
-        await getResponse(query, currentCategory);
+        await getResponse(query); 
       }
     }
 
-    // --- ฟังก์ชันเปลี่ยนหมวดหมู่ ---
-    function setCategory(cat, btnId) {
-      currentCategory = cat;
-      document.querySelectorAll('.btn-cat').forEach(b => b.classList.remove('active'));
-      document.getElementById(btnId).classList.add('active');
-      document.getElementById('response-text').innerText = "เลือกหมวด: " + cat + " ถามได้เลยค่ะ";
-      
-      // ปลดล็อคเสียง (สำคัญสำหรับ Chrome/Safari)
-      window.speechSynthesis.speak(new SpeechSynthesisUtterance(""));
-    }
+    // --- ฟังก์ชันเปลี่ยนหมวดหมู่ (ถ้าไม่ใช้ปุ่มแล้ว ลบทิ้งได้เลยครับ) ---
+    // function setCategory(cat, btnId) { ... }
 
     function toggleListening() {
-  if (isListening) {
-    recognition.stop();
-  } else { 
-    try { 
-      // 1. สั่งให้หยุดเสียงพูดที่ค้างอยู่ทันที
-      window.speechSynthesis.cancel(); 
-      
-      // 2. เปลี่ยนสถานะ Lottie ให้เป็นท่าทางปกติ (เพื่อไม่ให้ปากขยับค้าง)
-      if (typeof updateLottie === "function") {
-        updateLottie('thinking');
+      if (isListening) {
+        recognition.stop();
+      } else { 
+        try { 
+          window.speechSynthesis.cancel(); 
+          if (typeof updateLottie === "function") {
+            updateLottie('thinking');
+          }
+          recognition.start(); 
+        } catch(e) { 
+          console.error("Mic error:", e); 
+        } 
       }
-
-      recognition.start(); 
-    } catch(e) { 
-      console.error("Mic error:", e); 
-    } 
-  }
-}
-
+    }
 
     function stopListening() {
       isListening = false;
       document.getElementById('micBtn').classList.remove('recording');
       document.getElementById('statusText').innerText = "แตะไมค์เพื่อเริ่มพูด";
     }
-</script>
+  </script>
 </body>
 </html>
