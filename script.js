@@ -18,6 +18,7 @@ let isDetecting = true;
 let hasGreeted = false;
 let motionStartTime = null; 
 const DETECTION_THRESHOLD = 2000; // ต้องยืนนิ่ง/ขยับหน้ากล้องนาน 2 วินาทีถึงจะทัก
+let isBusy = false; // เพิ่มตัวแปรนี้เพื่อเช็คว่าน้องกำลังยุ่งอยู่หรือไม่
 
 // 1. เริ่มต้นระบบและโหลดคลังข้อมูล
 async function initDatabase() {
@@ -42,7 +43,7 @@ function resetToHome() {
     window.speechSynthesis.cancel(); 
     displayResponse("กดที่ปุ่มไมค์เพื่อสอบถามข้อมูลได้เลยค่ะ");
     updateLottie('idle');
-    
+    isBusy = false; //ปลดล็อคสถานะ
     hasGreeted = false; 
     isDetecting = true; 
     motionStartTime = null;
@@ -113,17 +114,15 @@ function detectMotion() {
 }
 
 function onMotionDetected() {
-    if (hasGreeted || !isDetecting) return;
+    // ถ้าน้องทักไปแล้ว หรือ ปิดการตรวจจับ หรือ น้องกำลังยุ่ง (ตอบคำถาม/พูด) ให้หยุดทำงานทันที
+    if (hasGreeted || !isDetecting || isBusy) return;
+
     const currentTime = Date.now();
     if (motionStartTime === null) {
         motionStartTime = currentTime;
     } else {
         const duration = currentTime - motionStartTime;
-        // เพิ่มบรรทัดนี้เพื่อดูเวลาที่ระบบกำลังนับ
-        console.log("กำลังตรวจจับคนนิ่ง: " + duration + "ms"); 
-
         if (duration >= DETECTION_THRESHOLD) {
-            console.log("!!! กำลังเรียกฟังก์ชันทักทาย !!!");
             greetUser();
             motionStartTime = null; 
         }
@@ -132,7 +131,8 @@ function onMotionDetected() {
 
 function greetUser() {
     // ป้องกันการทักซ้อนซ้อน
-    if (hasGreeted) return;
+     if (hasGreeted || isBusy) return; // เช็คซ้ำเพื่อความชัวร์
+    isBusy = true; // ล็อคสถานะว่ากำลังยุ่ง
     
     console.log("น้องนำทาง: เริ่มการทักทาย");
     
@@ -271,6 +271,10 @@ function displayResponse(text) {
 
 function speak(text) {
     window.speechSynthesis.cancel(); 
+    
+    // 1. ตั้งค่าว่า "กำลังยุ่ง" เพื่อหยุดการตรวจจับ Motion ทันที
+    isBusy = true; 
+    
     const cleanText = text.replace(/[*#-]/g, ""); 
     const msg = new SpeechSynthesisUtterance(cleanText);
     msg.lang = 'th-TH';
@@ -285,8 +289,22 @@ function speak(text) {
     msg.pitch = 1.05; 
     msg.rate = 1.0; 
 
-    msg.onstart = () => { updateLottie('talking'); restartIdleTimer(); };
-    msg.onend = () => { updateLottie('idle'); restartIdleTimer(); };
+    msg.onstart = () => { 
+        updateLottie('talking'); 
+        restartIdleTimer();
+        // 2. ปิดการตรวจจับชั่วคราวขณะน้องกำลังพูด
+        isDetecting = false; 
+    };
+
+    msg.onend = () => { 
+        updateLottie('idle'); 
+        restartIdleTimer();
+        // 3. พูดจบแล้ว ปลดล็อกสถานะยุ่ง 
+        // แต่ยังไม่เปิด isDetecting = true จนกว่าจะ resetToHome 
+        // เพื่อป้องกันน้องทัก "สวัสดี" ใส่คนเดิมที่เพิ่งฟังจบ
+        isBusy = false; 
+    };
+    
     window.speechSynthesis.speak(msg);
 }
 
