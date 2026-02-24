@@ -22,6 +22,7 @@ let isBusy = false; // ตัวแปรหลักในการล็อค
 
 // 1. เริ่มต้นระบบและโหลดคลังข้อมูล
 async function initDatabase() {
+    console.log("DEBUG: [Init] กำลังโหลดฐานข้อมูล...);
     try {
         const res = await fetch(GAS_URL, { redirect: 'follow' });
         const json = await res.json();
@@ -113,6 +114,7 @@ function onMotionDetected() {
     const currentTime = Date.now();
     if (motionStartTime === null) {
         motionStartTime = currentTime;
+         console.log('DEBUG: [Motion] ตรวจพบคน! (Pixel Diff: ${diffValue}) เริ่มนับถอยหลังทักทาย...');
     } else {
         const duration = currentTime - motionStartTime;
         if (duration >= DETECTION_THRESHOLD) {
