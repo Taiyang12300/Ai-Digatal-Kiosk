@@ -189,5 +189,8 @@ function renderFAQButtons() {
 
 initDatabase();
 // เตรียมรายการเสียงให้พร้อมใช้งานทันที
-window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+window.speechSynthesis.onvoiceschanged = () => {
+    const voices = window.speechSynthesis.getVoices();
+    console.log("รายการเสียงถูกอัปเดตแล้ว:", voices.length, "เสียง");
+};
 
