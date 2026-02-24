@@ -71,55 +71,89 @@ async function initCamera() {
 }
 
 function detectMotion() {
+    // 1. ถ้าไม่ได้อยู่ในโหมดตรวจจับ หรือไม่มี Canvas ให้รอรอบถัดไป
     if (!isDetecting || !ctx) {
         requestAnimationFrame(detectMotion);
         return;
     }
 
+    // วาดภาพจากวิดีโอลง Canvas เพื่ออ่านพิกเซล
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     const currentFrame = ctx.getImageData(0, 0, canvas.width, canvas.height);
     
     if (prevFrame) {
         let diff = 0;
-        for (let i = 0; i < currentFrame.data.length; i += 4) {
-            const rDiff = Math.abs(currentFrame.data[i] - prevFrame.data[i]);
-            const gDiff = Math.abs(currentFrame.data[i+1] - prevFrame.data[i+1]);
-            const bDiff = Math.abs(currentFrame.data[i+2] - prevFrame.data[i+2]);
+        const data = currentFrame.data;
+        const prevData = prevFrame.data;
+
+        // 2. คำนวณหาความต่างของภาพ (ขยับทีละ 4 คือ R,G,B,A)
+        for (let i = 0; i < data.length; i += 4) {
+            const rDiff = Math.abs(data[i] - prevData[i]);
+            const gDiff = Math.abs(data[i+1] - prevData[i+1]);
+            const bDiff = Math.abs(data[i+2] - prevData[i+2]);
+            
+            // ถ้าความต่างของสีรวมกันเกิน 100 ถือว่าจุดนั้นมีการขยับ
             if (rDiff + gDiff + bDiff > 100) diff++;
         }
 
-        if (diff > 500) { 
+        // --- จุดทดสอบสถานะ ---
+        // console.log("คะแนนความเคลื่อนไหวปัจจุบัน:", diff); 
+
+        // 3. ปรับเกณฑ์ (Threshold) ให้เหมาะสม
+        if (diff > 300) { // ลดจาก 500 เหลือ 300 เพื่อให้ทักง่ายขึ้น
             onMotionDetected();
         } else {
+            // ถ้านิ่งเกินไป (ไม่มีคนขยับ) ให้ล้างเวลาทิ้ง
             motionStartTime = null; 
         }
     }
+    
     prevFrame = currentFrame;
     requestAnimationFrame(detectMotion);
 }
 
 function onMotionDetected() {
     if (hasGreeted || !isDetecting) return;
+
     const currentTime = Date.now();
     if (motionStartTime === null) {
-        motionStartTime = currentTime;
+        motionStartTime = currentTime; // เริ่มจับเวลาเมื่อพบคนนิ่ง/เคลื่อนไหวเข้าเกณฑ์
     } else {
-        if (currentTime - motionStartTime >= DETECTION_THRESHOLD) {
+        const duration = currentTime - motionStartTime;
+        // console.log("กำลังตรวจจับบุคคลนิ่ง... ", duration, "ms"); // สำหรับ Debug
+
+        if (duration >= DETECTION_THRESHOLD) {
             greetUser();
-            motionStartTime = null; 
+            motionStartTime = null; // รีเซ็ตเวลาหลังทักเสร็จ
         }
     }
 }
 
 function greetUser() {
+    // ป้องกันการทักซ้อนซ้อน
     if (hasGreeted) return;
+    
+    console.log("น้องนำทาง: เริ่มการทักทาย");
+    
+    // 1. เปลี่ยนท่าทางเป็นพูดทันที (ดึงจาก Lottie_State ที่เราอัปเดตใหม่)
+    updateLottie('talking');
+
     const greetings = [
         "สวัสดีค่ะ มีอะไรให้น้องนำทางช่วยไหมคะ?",
-        "ยินดีต้อนรับค่ะ สอบถามข้อมูลการทำใบขับขี่กับหนูได้นะ"
+        "ยินดีต้อนรับค่ะ สอบถามข้อมูลการทำใบขับขี่กับหนูได้นะคะ",
+        "สวัสดีค่ะ เชิญสอบถามข้อมูลที่ต้องการได้เลยค่ะ"
     ];
     const randomGreeting = greetings[Math.floor(Math.random() * greetings.length)];
+    
+    // 2. แสดงข้อความบนจอ
     displayResponse(randomGreeting);
-    speak(randomGreeting);
+
+    // 3. สั่งพูด (ใส่ Delay เล็กน้อยเผื่อระบบเสียงยังไม่พร้อม)
+    setTimeout(() => {
+        speak(randomGreeting);
+    }, 100);
+
+    // 4. ล็อกสถานะ เพื่อไม่ให้ทักซ้ำจนกว่าจะรีเซ็ต (Idle)
     hasGreeted = true; 
     isDetecting = false; 
 }
