@@ -14,7 +14,6 @@
     
     .avatar-container { width: 180px; height: 180px; margin-bottom: 15px; border-radius: 50%; background: white; box-shadow: 0 5px 15px rgba(0,0,0,0.05); overflow: hidden; }
     
-    /* ปรับแต่งส่วนแสดงผลข้อความให้ยาวขึ้นและยืดหยุ่น */
     .display-box { 
       background: white; 
       border-radius: 20px; 
@@ -23,52 +22,68 @@
       width: 90%; 
       max-width: 500px; 
       text-align: left; 
-      min-height: 150px; /* เพิ่มความสูงเริ่มต้น */
-      height: auto;      /* ให้ยืดตามข้อความ */
+      min-height: 150px; 
+      height: auto;      
       font-size: 18px; 
       margin-bottom: 20px; 
       color: #2d3436; 
       border-left: 6px solid var(--primary);
       line-height: 1.6;
-      overflow: visible; /* ไม่ต้องมี scroll */
     }
     
-    .input-section { width: 90%; max-width: 500px; display: flex; gap: 10px; margin-bottom: 20px; }
-    #userInput { flex: 1; padding: 15px; border-radius: 30px; border: 2px solid #ddd; outline: none; font-family: 'Sarabun', sans-serif; font-size: 16px; }
-    
-    .btn-send { width: 50px; height: 50px; border-radius: 50%; border: none; background: var(--primary); color: white; cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center; }
-
-    /* ส่วนของปุ่ม FAQ */
-    .faq-title { width: 90%; max-width: 500px; margin: 10px 0; font-weight: 500; color: #636e72; font-size: 14px; }
-    .faq-grid { 
-      display: flex; 
-      flex-wrap: wrap; 
-      gap: 10px; 
+    /* ปรับปรุงส่วนปุ่ม FAQ ให้เป็น Grid สำหรับจอสัมผัส */
+    .faq-title { 
       width: 90%; 
       max-width: 500px; 
-      margin-bottom: 20px;
-      justify-content: center;
+      margin: 20px 0 10px 0; 
+      font-weight: 500; 
+      color: #636e72; 
+      font-size: 16px; 
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
+
+    .faq-grid { 
+      display: grid; 
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); 
+      gap: 12px; 
+      width: 90%; 
+      max-width: 500px; 
+      margin-bottom: 30px;
+    }
+
     .faq-btn { 
-      padding: 10px 18px; 
-      background: #e0e0ff; 
+      padding: 15px 10px; 
+      background: white; 
       color: var(--primary); 
-      border: none; 
-      border-radius: 20px; 
-      font-size: 14px; 
+      border: 2px solid #e0e0ff; 
+      border-radius: 15px; 
+      font-size: 15px; 
       cursor: pointer; 
-      transition: 0.3s;
+      transition: all 0.2s ease;
       font-weight: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+      min-height: 65px;
     }
-    .faq-btn:hover { background: var(--primary); color: white; }
+
+    .faq-btn:active { 
+      transform: scale(0.95);
+      background: var(--primary); 
+      color: white; 
+    }
+
+    .input-section { width: 90%; max-width: 500px; display: flex; gap: 10px; margin-bottom: 20px; }
+    #userInput { flex: 1; padding: 15px; border-radius: 30px; border: 2px solid #ddd; outline: none; font-family: 'Sarabun', sans-serif; font-size: 16px; }
+    .btn-send { width: 50px; height: 50px; border-radius: 50%; border: none; background: var(--primary); color: white; cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center; }
 
     .mic-section { margin-bottom: 20px; text-align: center; }
-    .btn-mic { width: 80px; height: 80px; border-radius: 50%; border: none; background: var(--primary); color: white; font-size: 30px; cursor: pointer; display: flex; align-items: center; justify-content: center; margin: 0 auto; }
+    .btn-mic { width: 90px; height: 90px; border-radius: 50%; border: none; background: var(--primary); color: white; font-size: 35px; cursor: pointer; display: flex; align-items: center; justify-content: center; margin: 0 auto; box-shadow: 0 10px 20px rgba(108,92,231,0.3); }
     .btn-mic.recording { background: var(--accent); animation: pulse 1.5s infinite; }
-    
-    .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 90%; max-width: 500px; margin-top: 10px; }
-    .btn-cat { padding: 12px; border: none; border-radius: 12px; background: white; color: var(--primary); border: 2px solid var(--primary); font-size: 13px; cursor: pointer; font-weight: 500; }
-    .btn-cat.active { background: var(--primary); color: white; }
 
     @keyframes pulse { 0% { transform: scale(1); } 70% { transform: scale(1.1); } 100% { transform: scale(1); } }
   </style>
@@ -82,8 +97,7 @@
   <div class="display-box" id="response-text">(กำลังโหลดฐานข้อมูล...)</div>
 
   <div class="faq-title"><i class="fas fa-star"></i> คำถามที่พบบ่อย:</div>
-  <div id="faq-container" class="faq-grid">
-    </div>
+  <div id="faq-container" class="faq-grid"></div>
 
   <div class="input-section">
     <input type="text" id="userInput" placeholder="พิมพ์คำถามที่นี่..." onkeypress="handleKeyPress(event)">
@@ -95,18 +109,15 @@
     <p id="statusText" style="margin-top:10px; color: #636e72; font-size: 14px;">แตะไมค์เพื่อเริ่มพูด</p>
   </div>
 
-  
+  <video id="video" width="320" height="240" autoplay style="display:none;"></video>
+  <canvas id="motionCanvas" width="320" height="240" style="display:none;"></canvas>
 
   <script src="script.js?v=1.7"></script>
 
-  <video id="video" width="320" height="240" autoplay style="display:none;"></video>
-  <canvas id="motionCanvas" width="320" height="240" style="display:none;"></canvas>
-  
-    <script>
+  <script>
     let recognition, isListening = false;
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-    // --- เริ่มต้นการตั้งค่าหูฟัง (Speech Recognition) ---
     if (SpeechRecognition) {
       recognition = new SpeechRecognition();
       recognition.lang = 'th-TH';
@@ -122,15 +133,12 @@
       recognition.onresult = (event) => {
         const text = event.results[0][0].transcript;
         document.getElementById('statusText').innerText = "กำลังสรุปคำถาม...";
-        setTimeout(() => {
-          processQuery(text);
-        }, 800); 
+        setTimeout(() => { processQuery(text); }, 800); 
       };
 
       recognition.onend = () => { stopListening(); };
     }
 
-    // --- ฟังก์ชันจัดการการพิมพ์ ---
     function handleManualInput() {
       const input = document.getElementById('userInput');
       const text = input.value.trim();
@@ -142,19 +150,14 @@
 
     function handleKeyPress(e) { if (e.key === 'Enter') handleManualInput(); }
 
-    // --- ฟังก์ชันส่งคำถามไปประมวลผล (ปรับปรุงใหม่) ---
     async function processQuery(query) {
       const output = document.getElementById('response-text');
       output.innerText = "กำลังค้นหาคำตอบ...";
-      
-      // เรียกใช้ getResponse โดยไม่ต้องส่ง category แล้ว
+      // เรียกใช้ getResponse จาก script.js แบบค้นหาทุกชีต
       if (typeof getResponse === "function") {
         await getResponse(query); 
       }
     }
-
-    // --- ฟังก์ชันเปลี่ยนหมวดหมู่ (ถ้าไม่ใช้ปุ่มแล้ว ลบทิ้งได้เลยครับ) ---
-    // function setCategory(cat, btnId) { ... }
 
     function toggleListening() {
       if (isListening) {
@@ -162,13 +165,9 @@
       } else { 
         try { 
           window.speechSynthesis.cancel(); 
-          if (typeof updateLottie === "function") {
-            updateLottie('thinking');
-          }
+          if (typeof updateLottie === "function") { updateLottie('thinking'); }
           recognition.start(); 
-        } catch(e) { 
-          console.error("Mic error:", e); 
-        } 
+        } catch(e) { console.error("Mic error:", e); } 
       }
     }
 
