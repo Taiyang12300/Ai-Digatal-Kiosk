@@ -293,9 +293,28 @@ function speak(text) {
 // 7. Lottie & FAQ Buttons (ดึงจากคอลัมน์ A ข้ามหัวแถว)
 function updateLottie(state) {
     const player = document.querySelector('lottie-player') || document.getElementById('lottie-canvas');
-    if (!player || !localDatabase || !localDatabase["Lottie_State"]) return;
-    const match = localDatabase["Lottie_State"].find(row => row[0] && row[0].toString().toLowerCase() === state.toLowerCase());
-    if (match && match[1]) player.load(match[1]);
+    if (!player || !localDatabase || !localDatabase["Lottie_State"]) {
+        console.warn("น้องนำทาง: ไม่พบตัวเล่น Lottie หรือฐานข้อมูลยังไม่พร้อม");
+        return;
+    }
+
+    // ค้นหาแถวที่มีชื่อ State ตรงกัน (เพิ่ม .trim() เพื่อความแม่นยำ)
+    const match = localDatabase["Lottie_State"].find(row => 
+        row[0] && row[0].toString().toLowerCase().trim() === state.toLowerCase().trim()
+    );
+
+    if (match && match[1]) {
+        console.log(`น้องนำทาง: เปลี่ยนสถานะ Lottie เป็น -> ${state}`);
+        // สำหรับ <lottie-player> การใช้ .load(url) คือวิธีที่ถูกต้องและไวที่สุด
+        if (typeof player.load === 'function') {
+            player.load(match[1]);
+        } else {
+            // กรณีเป็น lottie-canvas หรือ element อื่นๆ
+            player.src = match[1];
+        }
+    } else {
+        console.error(`น้องนำทาง: ไม่พบ URL สำหรับสถานะ "${state}" ในฐานข้อมูล`);
+    }
 }
 
 function renderFAQButtons() {
