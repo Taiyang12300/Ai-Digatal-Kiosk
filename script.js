@@ -114,17 +114,18 @@ function detectMotion() {
 
 function onMotionDetected() {
     if (hasGreeted || !isDetecting) return;
-
     const currentTime = Date.now();
     if (motionStartTime === null) {
-        motionStartTime = currentTime; // เริ่มจับเวลาเมื่อพบคนนิ่ง/เคลื่อนไหวเข้าเกณฑ์
+        motionStartTime = currentTime;
     } else {
         const duration = currentTime - motionStartTime;
-        // console.log("กำลังตรวจจับบุคคลนิ่ง... ", duration, "ms"); // สำหรับ Debug
+        // เพิ่มบรรทัดนี้เพื่อดูเวลาที่ระบบกำลังนับ
+        console.log("กำลังตรวจจับคนนิ่ง: " + duration + "ms"); 
 
         if (duration >= DETECTION_THRESHOLD) {
+            console.log("!!! กำลังเรียกฟังก์ชันทักทาย !!!");
             greetUser();
-            motionStartTime = null; // รีเซ็ตเวลาหลังทักเสร็จ
+            motionStartTime = null; 
         }
     }
 }
