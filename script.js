@@ -134,8 +134,9 @@ async function getResponse(userQuery) {
     }
 
     restartIdleTimer(); 
-    hasGreeted = true; // หากผู้ใช้เริ่มคุยเอง ไม่ต้องทักทายซ้ำ
+    hasGreeted = true; 
     
+    // ส่ง Log ไปยัง Google Sheets
     fetch(`${GAS_URL}?action=logOnly&query=${encodeURIComponent(userQuery)}`, { mode: 'no-cors' }).catch(e => {});
 
     const query = userQuery.toLowerCase().trim();
@@ -145,10 +146,13 @@ async function getResponse(userQuery) {
     const allSheetNames = Object.keys(localDatabase); 
 
     for (const sheetName of allSheetNames) {
+        // ข้ามชีตที่ไม่ใช่ข้อมูลคำถาม-คำตอบ
         if (["Lottie_State", "Config", "FAQ"].includes(sheetName)) continue; 
         if (foundExact) break;
 
         const data = localDatabase[sheetName]; 
+        
+        // โครงสร้าง: data[0] = แถวคำถาม, data[1] = แถวคำตอบ
         if (data && data[0] && data[1]) {
             const questions = data[0]; 
             const answers = data[1];
@@ -156,29 +160,42 @@ async function getResponse(userQuery) {
             for (let j = 0; j < questions.length; j++) {
                 const key = questions[j] ? questions[j].toString().toLowerCase().trim() : "";
                 const ans = answers[j] ? answers[j].toString().trim() : "";
+                
                 if (!key || !ans) continue;
 
                 let score = 0;
-                if (query.includes(key) || key.includes(query)) {
-                    score = 0.95; 
+
+                // 1. ถ้าคำถามตรงกันเป๊ะ (Perfect Match)
+                if (query === key) {
+                    score = 1.0;
                     foundExact = true;
-                } else {
+                } 
+                // 2. ตรวจสอบ Keyword (ถ้าคำถามผู้ใช้มีคำใน Sheet หรือใน Sheet มีคำที่ผู้ใช้ถาม)
+                else if (query.includes(key) || key.includes(query)) {
+                    // คำนวณคะแนนตามความยาวของ Keyword เพื่อความแม่นยำ
+                    // ถ้าคำสั้นเกินไป (เช่น "ทำ") จะได้คะแนนน้อยกว่าคำยาว (เช่น "ทำใบขับขี่ใหม่")
+                    score = key.length > 3 ? 0.85 : 0.60;
+                } 
+                // 3. ใช้ Fuzzy Logic (Similarity) เป็นตัวสำรอง
+                else {
                     score = calculateSimilarity(query, key);
                 }
 
                 if (score > bestMatch.score) {
                     bestMatch = { answer: ans, score: score };
                 }
+                
                 if (foundExact) break;
             }
         }
     }
 
-    if (bestMatch.score >= 0.40) {
+    // ปรับ Threshold เป็น 0.50 เพื่อกรองคำตอบที่ไม่ค่อยตรงออกไป
+    if (bestMatch.score >= 0.50) {
         displayResponse(bestMatch.answer);
         speak(bestMatch.answer);
     } else {
-        const fallback = "ขออภัยค่ะ น้องนำทางยังไม่มีข้อมูลเรื่องนี้ในระบบ กรุณาสอบถามเจ้าหน้าที่ประชาสัมพันธ์นะคะ";
+        const fallback = "ขออภัยค่ะ น้องนำทางยังไม่มีข้อมูลเรื่องนี้ในระบบ กรุณาลองใช้คำถามอื่น หรือสอบถามเจ้าหน้าที่ประชาสัมพันธ์นะคะ";
         displayResponse(fallback);
         speak(fallback);
     }
