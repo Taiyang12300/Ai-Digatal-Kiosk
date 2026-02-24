@@ -8,6 +8,9 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
   <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
   
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+  
   <style>
     :root { --primary: #6c5ce7; --bg: #f9f9fb; --accent: #ff7675; }
     body { font-family: 'Sarabun', sans-serif; background: var(--bg); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
@@ -31,7 +34,6 @@
       line-height: 1.6;
     }
     
-    /* ปรับปรุงส่วนปุ่ม FAQ ให้เป็น Grid สำหรับจอสัมผัส */
     .faq-title { 
       width: 90%; 
       max-width: 500px; 
@@ -94,7 +96,7 @@
     <lottie-player id="lottie-canvas" src="https://assets10.lottiefiles.com/packages/lf20_mbye9mxo.json" background="transparent" speed="1" loop autoplay></lottie-player>
   </div>
 
-  <div class="display-box" id="response-text">(กำลังโหลดฐานข้อมูล...)</div>
+  <div class="display-box" id="response-text">(กำลังเตรียมระบบ AI...)</div>
 
   <div class="faq-title"><i class="fas fa-star"></i> คำถามที่พบบ่อย:</div>
   <div id="faq-container" class="faq-grid"></div>
@@ -109,10 +111,10 @@
     <p id="statusText" style="margin-top:10px; color: #636e72; font-size: 14px;">แตะไมค์เพื่อเริ่มพูด</p>
   </div>
 
-  <video id="video" width="320" height="240" autoplay style="display:none;"></video>
+  <video id="video" width="320" height="240" autoplay muted playsinline style="display:none;"></video>
   <canvas id="motionCanvas" width="320" height="240" style="display:none;"></canvas>
 
-  <script src="script.js?v=1.7"></script>
+  <script src="script.js?v=1.8"></script>
 
   <script>
     let recognition, isListening = false;
@@ -128,6 +130,8 @@
         isListening = true;
         document.getElementById('micBtn').classList.add('recording');
         document.getElementById('statusText').innerText = "กำลังฟัง... พูดให้จบประโยคนะคะ";
+        // เมื่อเริ่มฟัง ให้หยุดการตรวจจับคนชั่วคราวเพื่อไม่ให้เสียงทักทายแทรก
+        if (typeof isDetecting !== 'undefined') isDetecting = false; 
       };
 
       recognition.onresult = (event) => {
@@ -153,7 +157,6 @@
     async function processQuery(query) {
       const output = document.getElementById('response-text');
       output.innerText = "กำลังค้นหาคำตอบ...";
-      // เรียกใช้ getResponse จาก script.js แบบค้นหาทุกชีต
       if (typeof getResponse === "function") {
         await getResponse(query); 
       }
@@ -175,6 +178,7 @@
       isListening = false;
       document.getElementById('micBtn').classList.remove('recording');
       document.getElementById('statusText').innerText = "แตะไมค์เพื่อเริ่มพูด";
+      // กลับมาเริ่มตรวจจับคนใหม่หลังจากตอบคำถามเสร็จ (จะถูกคุมโดย isBusy ใน script.js)
     }
   </script>
 </body>
