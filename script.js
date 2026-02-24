@@ -342,16 +342,19 @@ function speak(text) {
         restartIdleTimer();
     };
 
-    msg.onend = () => { 
-        console.log("DEBUG: [Voice] พูดจบแล้ว ปลดล็อคระบบ");
+        msg.onend = () => { 
+        console.log("DEBUG: [Voice] พูดจบแล้ว ปลดล็อกระบบ");
         updateLottie('idle'); 
         isBusy = false; 
+        isDetecting = true; // <--- เพิ่มบรรทัดนี้ เพื่อให้ดวงตา AI เริ่มทำงานใหม่
         restartIdleTimer();
     };
 
-    msg.onerror = (e) => {
+        msg.onerror = (e) => {
         console.error("DEBUG: [Voice Error]", e);
-        isBusy = false; // ป้องกันระบบล็อคค้างถ้าเสียงมีปัญหา
+        isBusy = false;      // ปลดล็อกสถานะไม่ว่าง
+        isDetecting = true;  // เปิดการตรวจจับการเคลื่อนไหวอีกครั้ง
+        updateLottie('idle'); // กลับไปท่าเตรียมพร้อม
     };
     
     // 4. บังคับ Resume ระบบเสียง (แก้อาการเสียงค้าง/โดนบล็อก)
