@@ -1,4 +1,4 @@
- * สมองกลน้องนำทาง - ฉบับปรับปรุง (AI Object Detection & Bilingual Integration)
+สอบถามข้อมูลเบื้องต้นกับน้องนำทางได้นะครับามข้อมูลกับผมได้นะครับามข้อมูลกับผมได้นะครับ * สมองกลน้องนำทาง - ฉบับปรับปรุง (AI Object Detection & Bilingual Integration)
  * โครงสร้างข้อมูลหลัก: แถว 1 Keywords | แถว 2 ตอบไทย | แถว 3 ตอบอังกฤษ
  * โครงสร้าง FAQ: Col A: ปุ่มไทย | Col B: ปุ่มอังกฤษ | Col C: คำถามหลักที่ถูกถาม (Logging)
  */
@@ -300,26 +300,10 @@ function speak(text) {
 }
 
 function updateLottie(state) {
-    const player = document.querySelector('lottie-player') || document.getElementById('lottie-canvas');
+    const player = document.querySelector('lottie-player');
     if (!player || !localDatabase || !localDatabase["Lottie_State"]) return;
-
-    const match = localDatabase["Lottie_State"].find(row => 
-        row[0] && row[0].toString().toLowerCase().trim() === state.toLowerCase().trim()
-    );
-
-    if (match && match[1]) {
-        const newSrc = match[1];
-        
-        // ใช้ requestAnimationFrame เพื่อลดภาระเครื่อง ป้องกันการค้าง
-        requestAnimationFrame(() => {
-            if (player.src !== newSrc) {
-                player.src = newSrc; // เปลี่ยน src ตรงๆ เสถียรที่สุด
-            }
-            if (typeof player.play === 'function') {
-                player.play();
-            }
-        });
-    }
+    const match = localDatabase["Lottie_State"].find(row => row[0]?.toString().toLowerCase().trim() === state.toLowerCase().trim());
+    if (match && match[1]) player.src = match[1];
 }
 
 function displayResponse(text) {
