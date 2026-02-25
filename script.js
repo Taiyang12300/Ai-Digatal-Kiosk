@@ -1,13 +1,13 @@
 /**
  * สมองกลน้องนำทาง - ฉบับปรับปรุงรองรับ 2 ภาษา (Bilingual Edition)
- * โครงสร้างข้อมูล: แถว 1 คำถาม | แถว 2 ตอบไทย | แถว 3 ตอบอังกฤษ
+ * โครงสร้างฐานข้อมูล: แถว 1 คำถาม (Keywords) | แถว 2 ตอบไทย | แถว 3 ตอบอังกฤษ
  */
 
 let localDatabase = null;
 const GAS_URL = "https://script.google.com/macros/s/AKfycbyoqeKLGpfGLIAO6d9nv0BkLers7PgezkPeuqZQxTvOlkBm5Atp-yMXxq_fpK806NLbNA/exec"; 
 
 // --- ตัวแปรระบบ ---
-let currentLang = 'th'; // ตัวแปรหลักสำหรับควบคุมภาษา
+let currentLang = 'th'; // ตัวแปรควบคุมภาษาหลัก
 let idleTimer; 
 const IDLE_TIME_LIMIT = 30000; 
 let lastMotionTime = Date.now(); 
@@ -57,9 +57,9 @@ function resetToHome() {
     console.log("DEBUG: [System] รีเซ็ตหน้าจอเริ่มต้น");
     window.speechSynthesis.cancel(); 
     
-    // ปรับคำทักทายตอน Reset ตามภาษา
-    const welcomeMsg = currentLang === 'th' ? "กดปุ่มไมค์เพื่อสอบถามข้อมูลได้เลยครับ" : "Please tap the microphone to ask for information.";
-    displayResponse(welcomeMsg);
+    // ปรับข้อความ Reset ตามภาษาปัจจุบัน
+    const resetMsg = currentLang === 'th' ? "กดปุ่มไมค์เพื่อสอบถามข้อมูลได้เลยครับ" : "Tap the mic to ask any questions.";
+    displayResponse(resetMsg);
     
     updateLottie('idle');
     isBusy = false; 
@@ -130,7 +130,7 @@ function greetUser() {
     if (hasGreeted || isBusy) return; 
     isBusy = true; 
 
-    // แยกชุดคำทักทายตามภาษา
+    // แยกชุดคำทักทายตามภาษา (ใช้ตัวแปร currentLang)
     const greetings = {
         th: [
             "สวัสดีครับ มีอะไรให้น้องนำทางช่วยไหมครับ?",
@@ -139,20 +139,20 @@ function greetUser() {
         ],
         en: [
             "Hello! How can I help you today?",
-            "Welcome to the Transport Office. How can I assist you?",
-            "Hi there! Please feel free to ask me any questions."
+            "Welcome to the Transport Office. Feel free to ask me anything.",
+            "Hi! I'm here to help. What would you like to know?"
         ]
     };
 
-    const selectedGreetings = greetings[currentLang] || greetings['th'];
-    const randomGreeting = selectedGreetings[Math.floor(Math.random() * selectedGreetings.length)];
+    const selectedList = greetings[currentLang] || greetings['th'];
+    const randomGreeting = selectedList[Math.floor(Math.random() * selectedList.length)];
     
     displayResponse(randomGreeting);
     speak(randomGreeting);
     hasGreeted = true; 
 }
 
-// 4. ฟังก์ชันค้นหาคำตอบ (ปรับปรุงข้าม 3 แถว)
+// 4. ฟังก์ชันค้นหาคำตอบ (ปรับปรุงข้ามทีละ 3 แถว)
 async function getResponse(userQuery) {
     console.log(`DEBUG: [Search] (${currentLang}) -> "${userQuery}"`);
     isBusy = true;
@@ -161,11 +161,12 @@ async function getResponse(userQuery) {
     if (userQuery && userQuery.trim() !== "") {
         fetch(`${GAS_URL}?query=${encodeURIComponent(userQuery.trim())}&action=logOnly`, { 
             mode: 'no-cors' 
-        }).catch(err => console.warn("บันทึก FAQ ล้มล้ว:", err));
+        }).catch(err => console.warn("บันทึก FAQ ล้มเหลว:", err));
     }
 
     if (!localDatabase) {
-        displayResponse(currentLang === 'th' ? "กำลังเตรียมข้อมูล..." : "Preparing data...");
+        const loadingMsg = currentLang === 'th' ? "กรุณารอสักครู่..." : "Please wait a moment...";
+        displayResponse(loadingMsg);
         isBusy = false; 
         return;
     }
@@ -181,7 +182,7 @@ async function getResponse(userQuery) {
 
         const data = localDatabase[sheetName];
         
-        // วนลูปทีละ 3 แถว (Step 3)
+        // วนลูปข้ามทีละ 3 แถว เพื่อรองรับโครงสร้าง ถาม-ตอบไทย-ตอบอังกฤษ
         for (let i = 0; i < data.length; i += 3) {
             const rawKey = data[i] && data[i][0] ? data[i][0].toString().toLowerCase().trim() : "";
             
@@ -211,31 +212,36 @@ async function getResponse(userQuery) {
         speak(bestMatch.answer);
     } else {
         const fallback = currentLang === 'th' ? 
-            "ขออภัยครับ ไม่พบข้อมูลเรื่องนี้ กรุณาติดต่อเจ้าหน้าที่ครับ" : 
-            "Sorry, I couldn't find information on this. Please contact our staff.";
+            "ขออภัยครับ น้องนำทางไม่พบข้อมูลเรื่องนี้ กรุณาติดต่อเจ้าหน้าที่ครับ" : 
+            "Sorry, I couldn't find any information on this. Please contact our staff.";
         displayResponse(fallback);
         speak(fallback);
     }
 }
 
+// --- ฟังก์ชันเสริม (Similarity, Display, Lottie) เหมือนเดิม ---
+
 function displayResponse(text) {
-    const box = document.getElementById('response-text');
+    const box = document.getElementById('response-text') || document.getElementById('output');
     if (box) { box.innerText = text; box.style.opacity = 1; }
 }
 
 function speak(text) {
     if (!text) return;
     window.speechSynthesis.cancel();
+    
     const msg = new SpeechSynthesisUtterance(text.replace(/[*#-]/g, ""));
     
     // ตั้งค่าภาษาและเสียงตาม currentLang
-    msg.lang = (currentLang === 'th') ? 'th-TH' : 'en-US';
+    msg.lang = currentLang === 'th' ? 'th-TH' : 'en-US';
+
     const voices = window.speechSynthesis.getVoices();
-    
     if (currentLang === 'th') {
-        msg.voice = voices.find(v => v.name.includes('Achara')) || voices.find(v => v.name.includes('Google ภาษาไทย'));
+        const thVoice = voices.find(v => v.name.includes('Achara')) || voices.find(v => v.name.includes('Google ภาษาไทย'));
+        if (thVoice) msg.voice = thVoice;
     } else {
-        msg.voice = voices.find(v => v.name.includes('Google US English')) || voices.find(v => v.name.includes('English'));
+        const enVoice = voices.find(v => v.name.includes('Google US English')) || voices.find(v => v.name.includes('English'));
+        if (enVoice) msg.voice = enVoice;
     }
 
     msg.onstart = () => updateLottie('talking');
@@ -248,35 +254,38 @@ function speak(text) {
 }
 
 function updateLottie(state) {
-    const player = document.querySelector('lottie-player');
+    const player = document.querySelector('lottie-player') || document.getElementById('lottie-canvas');
     if (!player || !localDatabase || !localDatabase["Lottie_State"]) return;
     const match = localDatabase["Lottie_State"].find(row => row[0]?.toString().toLowerCase().trim() === state.toLowerCase().trim());
-    if (match && match[1]) player.src = match[1];
+    if (match && match[1]) {
+        player.src = match[1];
+    }
 }
 
-// ปรับปรุง FAQ ให้รองรับ 3 แถว
+// ปรับปรุงการวาดปุ่ม FAQ ให้รองรับ 3 แถว
 function renderFAQButtons() {
     const container = document.getElementById('faq-container');
     if (!container || !localDatabase["FAQ"]) return;
     container.innerHTML = "";
     
     const faqData = localDatabase["FAQ"];
-    // วนลูปทีละ 3 แถว (เริ่มจากแถวที่ 0 หรือ 1 ตามโครงสร้างชีตคุณ)
+    // วนลูปข้ามทีละ 3 แถว
     for (let i = 0; i < faqData.length; i += 3) {
         const questionTh = faqData[i][0];
-        const questionEn = faqData[i+2] ? faqData[i+2][0] : questionTh; // ถ้าไม่มีอังกฤษให้ใช้ไทย
+        const questionEn = faqData[i+2] ? faqData[i+2][0] : questionTh; 
         
         if (questionTh) {
             const btn = document.createElement('button');
             btn.className = 'faq-btn';
-            btn.innerText = (currentLang === 'th') ? questionTh : questionEn;
+            // แสดงข้อความบนปุ่มตามภาษาที่เลือก
+            btn.innerText = currentLang === 'th' ? questionTh : questionEn;
             btn.onclick = () => getResponse(questionTh.toString());
             container.appendChild(btn);
         }
     }
 }
 
-// เพิ่มฟังก์ชัน Similarity เดิม
+// --- ฟังก์ชันคำนวณ Similarity คงเดิม ---
 function calculateSimilarity(s1, s2) {
     let longer = s1.length < s2.length ? s2 : s1;
     let shorter = s1.length < s2.length ? s1 : s2;
