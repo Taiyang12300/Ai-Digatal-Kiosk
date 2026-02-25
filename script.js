@@ -181,24 +181,25 @@ function renderFAQButtons() {
     const container = document.getElementById('faq-container');
     if (!container || !localDatabase["FAQ"]) return;
     container.innerHTML = "";
-
-    // ข้ามหัวตาราง (แถวที่ 0)
+    
+    // slice(1) เพื่อข้ามแถวหัวข้อ (Header)
     localDatabase["FAQ"].slice(1).forEach((row) => {
         // row[0] = คอลัมน์ A (ไทย), row[1] = คอลัมน์ B (อังกฤษ)
         const qThai = row[0] ? row[0].toString().trim() : "";
         const qEng  = row[1] ? row[1].toString().trim() : "";
 
-        // เลือกดึงเฉพาะคอลัมน์ที่ตรงกับภาษาปัจจุบันเท่านั้น
+        // เลือกดึงข้อความบนปุ่มตามภาษาปัจจุบัน (currentLang)
         let btnText = (currentLang === 'th') ? qThai : qEng;
         
-        // ตรวจสอบว่ามีข้อความในภาษาที่เลือกหรือไม่ (ถ้าว่างจะไม่สร้างปุ่ม)
+        // ตรวจสอบว่ามีข้อมูลในภาษาที่เลือกหรือไม่ (ถ้าว่างจะไม่สร้างปุ่ม)
         if (btnText !== "") {
             const btn = document.createElement('button');
             btn.className = 'faq-btn';
             btn.innerText = btnText;
             
-            // เมื่อกดปุ่ม จะส่งคำถามนั้นไปบันทึก Log ลงคอลัมน์ C และหาคำตอบ
+            // เมื่อคลิก จะส่งคำถามบนปุ่มไปบันทึกสถิติลงคอลัมน์ C และค้นหาคำตอบ 3 แถว
             btn.onclick = () => getResponse(btnText);
+            
             container.appendChild(btn);
         }
     });
