@@ -180,25 +180,34 @@ async function getResponse(userQuery) {
 function renderFAQButtons() {
     const container = document.getElementById('faq-container');
     if (!container || !localDatabase["FAQ"]) return;
-    container.innerHTML = "";
     
-    // slice(1) เพื่อข้ามแถวหัวข้อ (Header)
+    // ล้างปุ่มเก่าออกก่อนสร้างใหม่
+    container.innerHTML = "";
+
+    // ดึงข้อมูลจากชีต FAQ โดยตัดแถวหัวข้อออก (slice 1)
+    // ระบบจะวนลูปตามจำนวนแถวทั้งหมดที่มีข้อมูลในชีตโดยอัตโนมัติ
     localDatabase["FAQ"].slice(1).forEach((row) => {
         // row[0] = คอลัมน์ A (ไทย), row[1] = คอลัมน์ B (อังกฤษ)
         const qThai = row[0] ? row[0].toString().trim() : "";
         const qEng  = row[1] ? row[1].toString().trim() : "";
 
-        // เลือกดึงข้อความบนปุ่มตามภาษาปัจจุบัน (currentLang)
+        // เลือกข้อความที่จะแสดงบนปุ่มตามภาษาปัจจุบัน (currentLang)
         let btnText = (currentLang === 'th') ? qThai : qEng;
         
-        // ตรวจสอบว่ามีข้อมูลในภาษาที่เลือกหรือไม่ (ถ้าว่างจะไม่สร้างปุ่ม)
+        // เงื่อนไขสำคัญ: "สร้างปุ่มเฉพาะเมื่อมีข้อมูลในภาษานั้นๆ เท่านั้น"
+        // หากในอนาคตคุณเพิ่มแถวใหม่ใน Sheets ระบบจะสร้างปุ่มเพิ่มให้เองทันที
         if (btnText !== "") {
             const btn = document.createElement('button');
             btn.className = 'faq-btn';
             btn.innerText = btnText;
             
-            // เมื่อคลิก จะส่งคำถามบนปุ่มไปบันทึกสถิติลงคอลัมน์ C และค้นหาคำตอบ 3 แถว
-            btn.onclick = () => getResponse(btnText);
+            // เมื่อคลิกปุ่ม จะส่งค่าไปที่ getResponse 
+            // เพื่อค้นหาคำตอบแบบ 3 แถว และบันทึก Log ลงคอลัมน์ C (เพื่อส่งไปนับที่ Col E)
+            btn.onclick = () => {
+                if (typeof getResponse === "function") {
+                    getResponse(btnText);
+                }
+            };
             
             container.appendChild(btn);
         }
