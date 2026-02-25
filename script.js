@@ -158,8 +158,9 @@ function greetUser() {
 
     const greetings = [
         "สวัสดีครับ มีอะไรให้น้องนำทางช่วยไหมครับ?",
-        "ยินดีต้อนรับครับ สอบถามข้อมูลการทำใบขับขี่กับหนูได้นะครับ",
+        "สำนักงานขนส่งพยัคฆภูมิพิสัยสวัสดีครับ สอบถามข้อมูลการทำใบขับขี่กับผมได้นะครับ",
         "สวัสดีครับ เชิญสอบถามข้อมูลที่ต้องการได้เลยครับ"
+        "สวัสดีครับ วันนี้มาติดต่อเรื่องอะไรครับ สามารถสอบถามข้อมูลเบื้องต้นกับผมได้เลยนะครับ"
     ];
     const randomGreeting = greetings[Math.floor(Math.random() * greetings.length)];
     
@@ -169,8 +170,7 @@ function greetUser() {
     hasGreeted = true; 
 }
 
-// 4. ฟังก์ชันค้นหาคำตอบ (getResponse) และ 5-7 (Similarity, Display, Speak, FAQ) 
-// --- ยกโค้ดเดิมของคุณมาใช้ได้เลย ไม่ต้องแก้ไขโครงสร้างหลัก ---
+// 4. ฟังก์ชันค้นหาคำตอบ (getResponse) และ 5-7 (Similarity, Display, Speak, FAQ)
 
 function displayResponse(text) {
     const box = document.getElementById('response-text') || document.getElementById('output');
