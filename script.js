@@ -115,12 +115,36 @@ async function detectPerson() {
 function greetUser() {
     if (hasGreeted || isBusy) return; 
     isBusy = true; 
+
+    // ดึงเวลาปัจจุบันมาเช็ค (0-23)
+    const hour = new Date().getHours();
+    let timeGreetingTH = "สวัสดีครับ";
+    let timeGreetingEN = "Good day";
+
+    if (hour < 12) {
+        timeGreetingTH = "สวัสดีตอนเช้าครับ";
+        timeGreetingEN = "Good morning";
+    } else if (hour < 18) {
+        timeGreetingTH = "สวัสดีตอนบ่ายครับ";
+        timeGreetingEN = "Good afternoon";
+    }
+
     const greetings = {
-        th: ["สวัสดีครับ มีอะไรให้น้องนำทางช่วยไหมครับ?", "สำนักงานขนส่งพยัคฆภูมิพิสัยสวัสดีครับ สอบถามข้อมูลกับผมได้นะครับ", "สอบถามข้อมูลเบื้องต้นกับน้องนำทางได้นะครับ"],
-        en: ["Hello! How can I help you today?", "Welcome! Please feel free to ask any questions.", "Please feel free to ask me for any basic information."]
+        th: [
+            `${timeGreetingTH} มีอะไรให้น้องนำทางช่วยไหมครับ?`,
+            "สำนักงานขนส่งพยัคฆภูมิพิสัยสวัสดีครับ สอบถามข้อมูลกับผมได้นะครับ",
+            "สอบถามข้อมูลเบื้องต้นกับน้องนำทางได้นะครับ"
+        ],
+        en: [
+            `${timeGreetingEN}! How can I help you today?`,
+            "Welcome! Please feel free to ask any questions.",
+            "Please feel free to ask me for any basic information."
+        ]
     };
+    
     const selected = greetings[currentLang] || greetings['th'];
     const randomGreeting = selected[Math.floor(Math.random() * selected.length)];
+    
     displayResponse(randomGreeting);
     speak(randomGreeting);
     hasGreeted = true; 
