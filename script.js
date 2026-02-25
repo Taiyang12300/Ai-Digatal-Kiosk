@@ -99,7 +99,6 @@ async function initCamera() {
 }
 
 async function detectPerson() {
-    // ถ้าระบบยุ่ง (พูดอยู่) หรือปิดการตรวจจับ ให้รอรอบถัดไป
     if (!isDetecting || isBusy || !cocoModel) {
         requestAnimationFrame(detectPerson);
         return;
@@ -107,27 +106,43 @@ async function detectPerson() {
 
     const predictions = await cocoModel.detect(video);
     
-    // ค้นหา "คน" (Person) ที่มีความมั่นใจมากกว่า 60%
-    const person = predictions.find(p => p.class === "person" && p.score > 0.6);
+    const person = predictions.find(p => {
+        const [x, y, width, height] = p.bbox;
+        
+        // --- ส่วนจูนระยะ (Distance Tuning) ---
+        // เนื่องจากจอความละเอียด 320px
+        // ถ้าคนยืนใกล้ตู้ (ระยะ 1-1.5 เมตร) ความกว้าง (width) ควรจะอยู่ที่ 150-200px
+        const isNear = width > 160; 
+
+        // --- ส่วนจูนพื้นที่ (Position Tuning) ---
+        // กล้องอยู่ด้านข้าง คนจะยืนอยู่กลางเฟรมหรือค่อนไปฝั่งหนึ่ง
+        // เราจะทักเฉพาะคนที่ยืนอยู่ในช่วง 20% ถึง 80% ของหน้าจอ เพื่อตัดคนเดินผ่านขอบๆ
+        const centerX = x + (width / 2);
+        const isInRange = centerX > (320 * 0.2) && centerX < (320 * 0.8);
+
+        return p.class === "person" && p.score > 0.65 && isNear && isInRange;
+    });
 
     if (person) {
+        // เพิ่มบรรทัดนี้เพื่อเชื่อมกับระบบ Idle Timer ที่เราแก้กันก่อนหน้า
+        restartIdleTimer(); 
+
         if (personInFrameTime === null) {
             personInFrameTime = Date.now();
-            console.log("DEBUG: [AI] พบคนอยู่หน้าตู้...");
+            console.log(`DEBUG: [AI] พบคน (Width: ${Math.round(person.bbox[2])}px)`);
         } else {
             const duration = Date.now() - personInFrameTime;
-            
-            // ถ้าเห็นคนยืนนิ่งหน้าตู้นานเกินเกณฑ์ที่ตั้งไว้
-            if (duration >= DETECTION_THRESHOLD && !hasGreeted) {
-                console.log("DEBUG: [AI] ยืนยันพบคน -> สั่งทักทาย");
+            // ต้องยืนแช่หน้าตู้ 2 วินาที ถึงจะทัก (ป้องกันคนเดินตัดหน้ากล้อง)
+            if (duration >= 2000 && !hasGreeted) {
+                console.log("DEBUG: [AI] ยืนยันพบคนในระยะ -> ทักทาย");
                 greetUser();
             }
         }
     } else {
-        // ถ้าไม่พบคนในเฟรมนี้ ให้ค่อยๆ Reset (แต่ให้เวลาหน่อยเผื่อคนแค่ขยับตัวแรงจน AI หลุด)
-        if (personInFrameTime !== null && (Date.now() - personInFrameTime > 5000)) {
+        // ถ้าคนเดินถอยออกไปจนตัวเล็ก หรือหายไปจากเฟรมเกิน 4 วินาที
+        if (personInFrameTime !== null && (Date.now() - personInFrameTime > 4000)) {
             personInFrameTime = null;
-            hasGreeted = false; // รีเซ็ตเพื่อให้ทักทายคนใหม่ได้
+            hasGreeted = false;
             console.log("DEBUG: [AI] คนเดินออกไปแล้ว");
         }
     }
