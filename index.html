@@ -15,9 +15,11 @@
     :root { --primary: #6c5ce7; --bg: #f9f9fb; --accent: #ff7675; }
     body { font-family: 'Sarabun', sans-serif; background: var(--bg); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
     
-    .avatar-container { width: 180px; height: 180px; margin-bottom: 15px; border-radius: 50%; background: white; box-shadow: 0 5px 15px rgba(0,0,0,0.05); overflow: hidden; }
-    
-    /* --- เพิ่มเติม CSS สำหรับปุ่มสลับภาษา --- */
+    /* คงไว้ซึ่ง ID เดิมเพื่อให้ JS ทำงานได้ปกติ */
+    .avatar-container { width: 180px; height: 180px; margin-bottom: 15px; border-radius: 50%; background: white; box-shadow: 0 5px 15px rgba(0,0,0,0.05); overflow: hidden; position: relative; }
+    #lottie-canvas { width: 100%; height: 100%; }
+
+    /* --- ส่วนที่เพิ่ม: CSS สำหรับปุ่มสลับภาษา --- */
     .lang-container {
       width: 90%;
       max-width: 500px;
@@ -29,27 +31,24 @@
     .btn-lang {
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 8px 16px;
-      border-radius: 25px;
+      gap: 5px;
+      padding: 6px 12px;
+      border-radius: 20px;
       border: 2px solid #e0e0e0;
       background: white;
       color: #636e72;
-      font-family: 'Sarabun', sans-serif;
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 500;
       cursor: pointer;
-      transition: all 0.3s ease;
+      transition: all 0.2s;
     }
-    .btn-lang .flag { font-size: 20px; }
     .btn-lang.active {
       border-color: var(--primary);
       background: #f0edff;
       color: var(--primary);
-      box-shadow: 0 4px 10px rgba(108, 92, 231, 0.2);
     }
     /* ---------------------------------- */
-
+    
     .display-box { 
       background: white; 
       border-radius: 20px; 
@@ -127,10 +126,10 @@
 
   <div class="lang-container">
     <button onclick="changeLang('th')" id="btn-th" class="btn-lang active">
-      <span class="flag">🇹🇭</span> TH
+      <span>🇹🇭</span> TH
     </button>
     <button onclick="changeLang('en')" id="btn-en" class="btn-lang">
-      <span class="flag">🇺🇸</span> EN
+      <span>🇺🇸</span> EN
     </button>
   </div>
   <div class="avatar-container">
@@ -161,33 +160,30 @@
     let recognition, isListening = false;
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-    /* --- เพิ่มเติม ฟังก์ชันสลับภาษา --- */
+    /* --- ส่วนที่เพิ่ม: ฟังก์ชันสลับภาษาทางฝั่ง HTML --- */
     function changeLang(lang) {
       if (typeof currentLang !== 'undefined') currentLang = lang;
       
-      // อัปเดต UI ปุ่ม active
+      // สลับสถานะปุ่มใน UI
       document.getElementById('btn-th').classList.toggle('active', lang === 'th');
       document.getElementById('btn-en').classList.toggle('active', lang === 'en');
       
       const isTh = (lang === 'th');
-      
-      // เปลี่ยน Placeholder และคำอธิบายไมค์
       document.getElementById('userInput').placeholder = isTh ? "พิมพ์คำถามที่นี่..." : "Type your question here...";
       document.getElementById('statusText').innerText = isTh ? "แตะไมค์เพื่อเริ่มพูด" : "Tap mic to speak";
       
-      // เปลี่ยนภาษาของ Mic Recognition
       if (recognition) recognition.lang = isTh ? 'th-TH' : 'en-US';
 
-      // เรียกทักทายใหม่ตามภาษา (หากฟังก์ชันมีรองรับ)
-      if (typeof greetUser === "function") {
-        hasGreeted = false; // รีเซ็ตเพื่อให้ AI ยอมทักทายภาษาใหม่
-        greetUser();
+      // สั่งให้ AI ทักทายใหม่ตามภาษาที่เลือก (ถ้าโหลดฐานข้อมูลแล้ว)
+      if (typeof hasGreeted !== 'undefined') {
+        hasGreeted = false;
+        if (typeof greetUser === "function") greetUser();
       }
-      
-      // วาดปุ่ม FAQ ใหม่
+
+      // วาดปุ่ม FAQ ใหม่ตามภาษา
       if (typeof renderFAQButtons === "function") renderFAQButtons();
     }
-    /* ------------------------------ */
+    /* ------------------------------------------ */
 
     if (SpeechRecognition) {
       recognition = new SpeechRecognition();
@@ -199,7 +195,7 @@
         isListening = true;
         document.getElementById('micBtn').classList.add('recording');
         const isTh = (recognition.lang === 'th-TH');
-        document.getElementById('statusText').innerText = isTh ? "กำลังฟัง... พูดให้จบประโยคนะคะ" : "Listening... please speak";
+        document.getElementById('statusText').innerText = isTh ? "กำลังฟัง... พูดให้จบประโยคนะคะ" : "Listening...";
         if (typeof isDetecting !== 'undefined') isDetecting = false; 
       };
 
@@ -239,8 +235,8 @@
 
     async function processQuery(query) {
       const output = document.getElementById('response-text');
-      const isTh = (currentLang === 'th');
-      output.innerText = isTh ? "กำลังค้นหาคำตอบ..." : "Searching for answer...";
+      const isTh = (typeof currentLang !== 'undefined' ? currentLang === 'th' : true);
+      output.innerText = isTh ? "กำลังค้นหาคำตอบ..." : "Searching...";
       if (typeof getResponse === "function") {
         await getResponse(query); 
       }
@@ -264,7 +260,7 @@
     function stopListening() {
       isListening = false;
       document.getElementById('micBtn').classList.remove('recording');
-      const isTh = (currentLang === 'th');
+      const isTh = (typeof currentLang !== 'undefined' ? currentLang === 'th' : true);
       document.getElementById('statusText').innerText = isTh ? "แตะไมค์เพื่อเริ่มพูด" : "Tap mic to speak";
     }
   </script>
