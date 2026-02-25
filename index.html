@@ -174,19 +174,26 @@
     function changeLang(lang) {
   if (typeof currentLang !== 'undefined') currentLang = lang;
   
+  // 1. หยุดเสียงเก่าทันทีเพื่อไม่ให้ระบบเสียงค้าง
+  window.speechSynthesis.cancel();
+  
   document.getElementById('btn-th').classList.toggle('active', lang === 'th');
   document.getElementById('btn-en').classList.toggle('active', lang === 'en');
   
   const isTh = (lang === 'th');
   
-  // เปลี่ยน Placeholder และล้างค่าค้างเก่า
+  // 2. เปลี่ยน Placeholder และข้อความต่างๆ
   const userInput = document.getElementById('userInput');
-  userInput.placeholder = isTh ? "พิมพ์คำถามที่นี่..." : "Type your question here...";
-  userInput.value = ""; 
+  if (userInput) {
+      userInput.placeholder = isTh ? "พิมพ์คำถามที่นี่..." : "Type your question here...";
+      userInput.value = ""; 
+  }
 
-  document.getElementById('statusText').innerText = isTh ? "แตะไมค์เพื่อเริ่มพูด" : "Tap mic to speak";
+  const statusText = document.getElementById('statusText');
+  if (statusText) {
+      statusText.innerText = isTh ? "แตะไมค์เพื่อเริ่มพูด" : "Tap mic to speak";
+  }
   
-  // --- เพิ่ม: เปลี่ยนหัวข้อ FAQ Title ---
   const faqTitle = document.getElementById('faq-title-text');
   if (faqTitle) {
       faqTitle.innerHTML = isTh ? '<i class="fas fa-star"></i> คำถามที่พบบ่อย:' : '<i class="fas fa-star"></i> Frequently Asked Questions:';
@@ -194,16 +201,17 @@
 
   if (recognition) recognition.lang = isTh ? 'th-TH' : 'en-US';
 
-  // รีเซ็ตสถานะการทักทายเพื่อให้ AI ทักทายด้วยภาษาใหม่
+  // 3. จัดการสถานะการทักทาย (แก้ไขจุดนี้)
   if (typeof hasGreeted !== 'undefined') {
-    hasGreeted = false;
-    // ทักทายใหม่ทันทีถ้าไม่ได้ยุ่งอยู่
-    if (typeof isBusy !== 'undefined' && !isBusy && typeof greetUser === "function") {
-        greetUser();
-    }
+    hasGreeted = false; 
+    // ย้ายท่าทางกลับไปที่ idle ก่อน เพื่อเตรียมโหลดท่าทางภาษาใหม่
+    if (typeof updateLottie === "function") updateLottie('idle');
+    
+    // หมายเหตุ: ลบการสั่ง greetUser() ตรงนี้ออก 
+    // เพื่อให้ระบบ detectPerson เป็นตัวสั่งทักทายตามรอบปกติ ป้องกันอาการค้างจากการกดรัวๆ
   }
 
-  // วาดปุ่มใหม่ (ดึง Col A หรือ Col B ตามภาษา)
+  // 4. วาดปุ่มใหม่ (ดึงข้อมูลจาก Database ที่โหลดไว้แล้ว)
   if (typeof renderFAQButtons === "function") renderFAQButtons();
 }
     /* ------------------------------------------ */
