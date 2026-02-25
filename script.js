@@ -181,28 +181,26 @@ function renderFAQButtons() {
     const container = document.getElementById('faq-container');
     if (!container || !localDatabase["FAQ"]) return;
     
-    // ล้างปุ่มเก่าออกก่อนสร้างใหม่
+    // 1. ล้างปุ่มเดิมออกให้หมดก่อน
     container.innerHTML = "";
 
-    // ดึงข้อมูลจากชีต FAQ โดยตัดแถวหัวข้อออก (slice 1)
-    // ระบบจะวนลูปตามจำนวนแถวทั้งหมดที่มีข้อมูลในชีตโดยอัตโนมัติ
+    // 2. วนลูปตามจำนวนแถวที่มีใน Sheets (ไม่จำกัดจำนวนปุ่มในอนาคต)
     localDatabase["FAQ"].slice(1).forEach((row) => {
-        // row[0] = คอลัมน์ A (ไทย), row[1] = คอลัมน์ B (อังกฤษ)
+        // คอลัมน์ A (index 0) = ไทย | คอลัมน์ B (index 1) = อังกฤษ
         const qThai = row[0] ? row[0].toString().trim() : "";
         const qEng  = row[1] ? row[1].toString().trim() : "";
 
-        // เลือกข้อความที่จะแสดงบนปุ่มตามภาษาปัจจุบัน (currentLang)
+        // 3. ดึงค่าจาก "คอลัมน์เดียว" ที่ตรงกับภาษาที่เลือกเท่านั้น
+        // ไม่มีการใช้ || row[0] เพื่อป้องกันภาษาไทยมาปนในโหมด EN
         let btnText = (currentLang === 'th') ? qThai : qEng;
         
-        // เงื่อนไขสำคัญ: "สร้างปุ่มเฉพาะเมื่อมีข้อมูลในภาษานั้นๆ เท่านั้น"
-        // หากในอนาคตคุณเพิ่มแถวใหม่ใน Sheets ระบบจะสร้างปุ่มเพิ่มให้เองทันที
+        // 4. เงื่อนไขสำคัญ: สร้างปุ่มเฉพาะเมื่อคอลัมน์นั้นมีข้อมูลเท่านั้น
         if (btnText !== "") {
             const btn = document.createElement('button');
             btn.className = 'faq-btn';
             btn.innerText = btnText;
             
-            // เมื่อคลิกปุ่ม จะส่งค่าไปที่ getResponse 
-            // เพื่อค้นหาคำตอบแบบ 3 แถว และบันทึก Log ลงคอลัมน์ C (เพื่อส่งไปนับที่ Col E)
+            // เมื่อคลิก: ส่งไปหาคำตอบ (3 แถว) และบันทึก Log ลง Col C ทันที
             btn.onclick = () => {
                 if (typeof getResponse === "function") {
                     getResponse(btnText);
