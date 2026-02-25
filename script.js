@@ -105,58 +105,72 @@ function greetUser() {
 
 // 4. ค้นหาคำตอบ (Step 3) และ บันทึก Log ลงคอลัมน์ C (นับสถิติ Col E)
 async function getResponse(userQuery) {
-    console.log(`DEBUG: [Search] (${currentLang}) -> "${userQuery}"`);
+    console.log(`DEBUG: [Search] กำลังค้นหา (${currentLang}) -> "${userQuery}"`);
     isBusy = true;
     window.speechSynthesis.cancel(); 
 
-    // --- ส่วนบันทึกคำถามลง Col C (ไม่ว่าจะเป็นปุ่ม, พูด, หรือพิมพ์) ---
+    // --- ส่วนที่ 1: บันทึกคำถามลง Google Sheets (คอลัมน์ C) เพื่อทำสถิติ ---
     if (userQuery && userQuery.trim() !== "") {
+        // ส่ง query ไปที่ GAS เพื่อบันทึกลงคอลัมน์ C ในหน้า FAQ
         fetch(`${GAS_URL}?query=${encodeURIComponent(userQuery.trim())}&action=logOnly`, { 
             mode: 'no-cors' 
-        }).catch(err => console.warn("Log failed:", err));
+        }).catch(err => console.warn("บันทึกสถิติล้มเหลว:", err));
     }
 
     if (!localDatabase) {
-        displayResponse(currentLang === 'th' ? "กำลังเตรียมข้อมูล..." : "Preparing data...");
+        displayResponse(currentLang === 'th' ? "กรุณารอสักครู่..." : "Please wait...");
         isBusy = false; 
         return;
     }
 
     restartIdleTimer(); 
     hasGreeted = true; 
+    
     const query = userQuery.toLowerCase().trim();
     let bestMatch = { answer: "", score: 0 };
 
+    // --- ส่วนที่ 2: วนลูปหาคำตอบแบบ 3 แถว (Step 3) ---
     Object.keys(localDatabase).forEach(sheetName => {
+        // ข้ามหน้าที่ไม่ใช่ข้อมูลคำตอบ
         if (["Lottie_State", "Config", "FAQ"].includes(sheetName)) return;
-        const data = localDatabase[sheetName];
 
-        // วนลูปข้ามทีละ 3 แถว (Keyword -> ตอบไทย -> ตอบอังกฤษ)
-        for (let i = 0; i < data.length; i += 3) {
-            const rawKey = data[i] && data[i][0] ? data[i][0].toString().toLowerCase().trim() : "";
+        const sheetData = localDatabase[sheetName];
+        
+        // วนลูปทีละ 3 แถว: i=Keywords, i+1=Thai, i+2=English
+        for (let i = 0; i < sheetData.length; i += 3) {
+            const rawKey = sheetData[i] && sheetData[i][0] ? sheetData[i][0].toString().toLowerCase().trim() : "";
+            
+            // เลือกคำตอบตามภาษาปัจจุบัน
             let ans = "";
             if (currentLang === 'th') {
-                ans = data[i+1] && data[i+1][0] ? data[i+1][0].toString().trim() : "";
+                ans = sheetData[i+1] && sheetData[i+1][0] ? sheetData[i+1][0].toString().trim() : "";
             } else {
-                ans = data[i+2] && data[i+2][0] ? data[i+2][0].toString().trim() : "";
+                ans = sheetData[i+2] && sheetData[i+2][0] ? sheetData[i+2][0].toString().trim() : "";
             }
 
             if (!rawKey || !ans) continue;
 
+            // แยก Keywords และคำนวณคะแนน
             const keywordsArray = rawKey.split(/\s+/); 
             keywordsArray.forEach(key => {
                 if (key.length <= 2) return;
                 let currentScore = query.includes(key) ? (0.9 + (key.length / 100)) : calculateSimilarity(query, key);
-                if (currentScore > bestMatch.score) bestMatch = { answer: ans, score: currentScore };
+
+                if (currentScore > bestMatch.score) {
+                    bestMatch = { answer: ans, score: currentScore };
+                }
             });
         }
     });
 
+    // แสดงคำตอบ
     if (bestMatch.score >= 0.45) {
         displayResponse(bestMatch.answer);
         speak(bestMatch.answer);
     } else {
-        const fallback = currentLang === 'th' ? "ขออภัยครับ ไม่พบข้อมูลเรื่องนี้" : "Sorry, I couldn't find information on this.";
+        const fallback = currentLang === 'th' ? 
+            "ขออภัยครับ น้องนำทางไม่พบข้อมูลเรื่องนี้" : 
+            "I'm sorry, I couldn't find any information on that topic.";
         displayResponse(fallback);
         speak(fallback);
     }
@@ -167,20 +181,23 @@ function renderFAQButtons() {
     const container = document.getElementById('faq-container');
     if (!container || !localDatabase["FAQ"]) return;
     container.innerHTML = "";
-    
+
+    // slice(1) เพื่อข้ามแถวหัวข้อ
     localDatabase["FAQ"].slice(1).forEach((row) => {
+        // row[0] = ปุ่มไทย (A), row[1] = ปุ่มอังกฤษ (B)
         const qThai = row[0] ? row[0].toString().trim() : "";
         const qEng  = row[1] ? row[1].toString().trim() : "";
-        
+
         if (qThai || qEng) {
             const btn = document.createElement('button');
             btn.className = 'faq-btn';
             
-            // แสดงชื่อปุ่มตามภาษาที่เลือก
+            // เลือกแสดงข้อความบนปุ่มตามภาษาปัจจุบัน
             btn.innerText = (currentLang === 'th') ? (qThai || qEng) : (qEng || qThai);
             
-            // ส่ง "ชื่อบนปุ่ม" ไปบันทึกสถิติ (Col C) และค้นหาคำตอบ
+            // เมื่อคลิก ให้ส่งข้อความบนปุ่มไปหาคำตอบและบันทึก Log (ลง Col C)
             btn.onclick = () => getResponse(btn.innerText);
+            
             container.appendChild(btn);
         }
     });
