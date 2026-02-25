@@ -178,26 +178,28 @@ async function getResponse(userQuery) {
 
 // 5. ปรับปรุง FAQ (Col A: ไทย | Col B: อังกฤษ)
 function renderFAQButtons() {
+function renderFAQButtons() {
     const container = document.getElementById('faq-container');
     if (!container || !localDatabase["FAQ"]) return;
     container.innerHTML = "";
 
-    // slice(1) เพื่อข้ามแถวหัวข้อ
+    // ข้ามหัวตาราง (แถวที่ 0)
     localDatabase["FAQ"].slice(1).forEach((row) => {
-        // row[0] = ปุ่มไทย (A), row[1] = ปุ่มอังกฤษ (B)
+        // row[0] = คอลัมน์ A (ไทย), row[1] = คอลัมน์ B (อังกฤษ)
         const qThai = row[0] ? row[0].toString().trim() : "";
         const qEng  = row[1] ? row[1].toString().trim() : "";
 
-        if (qThai || qEng) {
+        // เลือกดึงเฉพาะคอลัมน์ที่ตรงกับภาษาปัจจุบันเท่านั้น
+        let btnText = (currentLang === 'th') ? qThai : qEng;
+        
+        // ตรวจสอบว่ามีข้อความในภาษาที่เลือกหรือไม่ (ถ้าว่างจะไม่สร้างปุ่ม)
+        if (btnText !== "") {
             const btn = document.createElement('button');
             btn.className = 'faq-btn';
+            btn.innerText = btnText;
             
-            // เลือกแสดงข้อความบนปุ่มตามภาษาปัจจุบัน
-            btn.innerText = (currentLang === 'th') ? (qThai || qEng) : (qEng || qThai);
-            
-            // เมื่อคลิก ให้ส่งข้อความบนปุ่มไปหาคำตอบและบันทึก Log (ลง Col C)
-            btn.onclick = () => getResponse(btn.innerText);
-            
+            // เมื่อกดปุ่ม จะส่งคำถามนั้นไปบันทึก Log ลงคอลัมน์ C และหาคำตอบ
+            btn.onclick = () => getResponse(btnText);
             container.appendChild(btn);
         }
     });
