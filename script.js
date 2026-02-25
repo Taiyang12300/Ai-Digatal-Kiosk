@@ -20,20 +20,35 @@ let personInFrameTime = null;
 let isBusy = false; 
 let lastGreeting = "";
 
-// 1. เริ่มต้นระบบ
+// 1. เริ่มต้นระบบ)
 async function initDatabase() {
     try {
+        console.log("1. กำลังดึงข้อมูลจาก Sheets...");
         const res = await fetch(GAS_URL, { redirect: 'follow' });
         const json = await res.json();
+        
         if (json.database) {
             localDatabase = json.database;
-            cocoModel = await cocoSsd.load();
-            resetToHome();
-            renderFAQButtons();
-            initCamera(); 
+            
+            // --- จุดสำคัญ: แสดงหน้าจอก่อนโหลด AI ---
+            resetToHome();       // ให้ข้อความหน้าหลักขึ้นทันที
+            renderFAQButtons(); // ให้ปุ่ม FAQ ขึ้นทันที (คนจะเริ่มกดได้เลย)
+            initCamera();       // เปิดกล้อง
+            // ------------------------------------
+
+            console.log("2. กำลังโหลดโมเดล AI ในพื้นหลัง...");
+            // โหลด AI แยกไว้ ถ้าโหลดไม่ได้ ก็ไม่ทำให้ระบบหลักค้าง
+            cocoSsd.load().then(model => {
+                cocoModel = model;
+                console.log("3. AI พร้อมตรวจจับคนแล้ว!");
+            }).catch(err => {
+                console.error("AI Model Load Failed:", err);
+                // แม้ AI จะพัง แต่ปุ่มกด FAQ จะยังทำงานได้ปกติ
+            });
         }
     } catch (e) {
         console.error("System Load Error:", e);
+        displayResponse("การเชื่อมต่อขัดข้อง กรุณาลองใหม่อีกครั้ง");
     }
 }
 
