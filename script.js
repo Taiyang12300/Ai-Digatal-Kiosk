@@ -277,62 +277,22 @@ function editDistance(s1, s2) {
 }
 
 function speak(text) {
-    // 1. เคลียร์คิวเสียงเก่า
-    window.speechSynthesis.cancel(); 
-    isBusy = true; 
-
-    // 2. เตรียมข้อความและวัตถุเสียง
-    const cleanText = text.replace(/[*#-]/g, ""); 
-    const msg = new SpeechSynthesisUtterance(cleanText);
+    window.speechSynthesis.cancel();
+    const msg = new SpeechSynthesisUtterance(text.replace(/[*#-]/g, ""));
     msg.lang = 'th-TH';
-    
-    // ตั้งค่าความเร็วให้ฟังง่าย (0.9 - 1.0 กำลังดีสำหรับข้อมูลบริการ)
-    msg.rate = 1.0; 
-    msg.pitch = 1.0;
 
-    // 3. ดึงรายการเสียง (เลือกตัวที่เขียนว่า Google)
     const voices = window.speechSynthesis.getVoices();
     
-    // พยายามหาเสียงภาษาไทยที่เป็นของ Google โดยเฉพาะ
-    const googleThaiVoice = voices.find(v => v.lang.includes('th') && v.name.includes('Google'));
+    // เรียงลำดับความเพราะที่ต้องการ (ถ้าเจอตัวไหนเอาตัวนั้น)
+    const bestVoice = 
+        voices.find(v => v.name.includes('Achara')) ||  // เสียงอัจฉรา (นุ่มนวลมาก)
+        voices.find(v => v.name.includes('Premwadee')) || // เสียงเปรมวดี
+        voices.find(v => v.name.includes('Google ภาษาไทย')) || // เสียง Google
+        voices.find(v => v.name.includes('Pattara')); // เสียงภัทรา (ตัวเลือกสุดท้าย)
+
+    if (bestVoice) msg.voice = bestVoice;
     
-    if (googleThaiVoice) {
-        msg.voice = googleThaiVoice;
-        console.log("DEBUG: [TTS] ใช้เสียง Google Thai Voice");
-    } else {
-        // แผนสำรอง: ถ้าหา Google ไม่เจอ ให้ใช้เสียงภาษาไทยตัวแรกที่มี
-        const anyThaiVoice = voices.find(v => v.lang.includes('th'));
-        if (anyThaiVoice) msg.voice = anyThaiVoice;
-    }
-
-    // 4. ตั้งค่าสถานะการทำงาน
-    msg.onstart = () => { 
-        updateLottie('talking'); 
-        console.log("DEBUG: [TTS] เริ่มการอ่านออกเสียง...");
-    };
-
-    msg.onend = () => { 
-        updateLottie('idle'); 
-        isBusy = false; 
-        restartIdleTimer();
-        console.log("DEBUG: [TTS] อ่านออกเสียงจบแล้ว");
-    };
-
-    msg.onerror = (e) => { 
-        console.error("DEBUG ERROR: [TTS] เกิดข้อผิดพลาด:", e);
-        isBusy = false; 
-        updateLottie('idle');
-    };
-
-    // 5. สั่งพูด (ใส่หน่วงเวลาสั้นๆ 100ms เพื่อให้ระบบ Android เคลียร์สถานะทัน)
-    setTimeout(() => {
-        window.speechSynthesis.speak(msg);
-    }, 100);
-}
-
-// 💡 สำคัญ: บังคับให้เบราว์เซอร์อัปเดตรายการเสียงทันทีเมื่อเปิดหน้าเว็บ
-if (window.speechSynthesis.onvoiceschanged !== undefined) {
-    window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+    window.speechSynthesis.speak(msg);
 }
 
 function updateLottie(state) {
