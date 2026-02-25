@@ -8,7 +8,7 @@ const GAS_URL = "https://script.google.com/macros/s/AKfycbyoqeKLGpfGLIAO6d9nv0Bk
 
 // --- ตัวแปรระบบ ---
 let idleTimer; 
-const IDLE_TIME_LIMIT = 60000; 
+const IDLE_TIME_LIMIT = 30000; 
 let lastMotionTime = Date.now(); 
 
 let video = document.getElementById('video');
