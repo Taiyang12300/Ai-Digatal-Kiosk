@@ -5,7 +5,7 @@
  */
 
 let localDatabase = null;
-const GAS_URL = "https://script.google.com/macros/s/AKfycbzOsStdb-nPOdn4ldJkkPCmUE82OGEGXWuFenBn7rYvBh6pZxhhbdEsIOeK-1y7Zvymmg/exec"; 
+const GAS_URL = "https://script.google.com/macros/s/AKfycbz1bkIsQ588u-rpjY-8nMlya5_c0DsIabRvyPyCC_sPs5vyeJ_1wcOBaqKfg7cvlM3XJw/exec"; 
 
 // --- ตัวแปรระบบ ---
 let currentLang = 'th'; // ตัวแปรคุมภาษาหลัก
