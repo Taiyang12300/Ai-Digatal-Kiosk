@@ -276,12 +276,36 @@ function editDistance(s1, s2) {
 }
 
 function speak(text) {
-      window.speechSynthesis.cancel();
-      const msg = new SpeechSynthesisUtterance(text.replace(/[*#-]/g, ""));
-      msg.lang = 'th-TH';
-      msg.onend = () => { google.script.run.withSuccessHandler(url => playAni(url)).getLottieUrl('idle'); };
-      window.speechSynthesis.speak(msg);
-    }
+    if (!text) return;
+    window.speechSynthesis.cancel();
+    
+    const msg = new SpeechSynthesisUtterance(text.replace(/[*#-]/g, ""));
+    msg.lang = 'th-TH';
+
+    // ค้นหาเสียงที่เหมาะสม (โค้ดเดิมของคุณ)
+    const voices = window.speechSynthesis.getVoices();
+    const bestVoice = 
+        voices.find(v => v.name.includes('Achara')) || 
+        voices.find(v => v.name.includes('Premwadee')) ||
+        voices.find(v => v.name.includes('Google ภาษาไทย'));
+
+    if (bestVoice) msg.voice = bestVoice;
+
+    // --- ส่วนที่ต้องเพิ่ม/แก้ไข ---
+    msg.onstart = () => {
+        console.log("DEBUG: [Lottie] กำลังพูด -> เปลี่ยนเป็น talking");
+        updateLottie('talking'); // สั่งให้ Lottie ขยับ
+    };
+
+    msg.onend = () => {
+        console.log("DEBUG: [Lottie] พูดจบแล้ว -> กลับเป็น idle");
+        updateLottie('idle'); // สั่งให้ Lottie กลับมานิ่ง
+        restartIdleTimer();    // เริ่มนับเวลาถอยหลังการรีเซ็ตหน้าจอ
+    };
+    // --------------------------
+
+    window.speechSynthesis.speak(msg);
+}
 
 function updateLottie(state) {
     const player = document.querySelector('lottie-player') || document.getElementById('lottie-canvas');
