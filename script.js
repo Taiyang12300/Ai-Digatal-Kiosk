@@ -276,23 +276,12 @@ function editDistance(s1, s2) {
 }
 
 function speak(text) {
-    window.speechSynthesis.cancel();
-    const msg = new SpeechSynthesisUtterance(text.replace(/[*#-]/g, ""));
-    msg.lang = 'th-TH';
-
-    const voices = window.speechSynthesis.getVoices();
-    
-    // เรียงลำดับความเพราะที่ต้องการ (ถ้าเจอตัวไหนเอาตัวนั้น)
-    const bestVoice = 
-        voices.find(v => v.name.includes('Achara')) ||  // เสียงอัจฉรา (นุ่มนวลมาก)
-        voices.find(v => v.name.includes('Premwadee')) || // เสียงเปรมวดี
-        voices.find(v => v.name.includes('Google ภาษาไทย')) || // เสียง Google
-        voices.find(v => v.name.includes('Pattara')); // เสียงภัทรา (ตัวเลือกสุดท้าย)
-
-    if (bestVoice) msg.voice = bestVoice;
-    
-    window.speechSynthesis.speak(msg);
-}
+      window.speechSynthesis.cancel();
+      const msg = new SpeechSynthesisUtterance(text.replace(/[*#-]/g, ""));
+      msg.lang = 'th-TH';
+      msg.onend = () => { google.script.run.withSuccessHandler(url => playAni(url)).getLottieUrl('idle'); };
+      window.speechSynthesis.speak(msg);
+    }
 
 function updateLottie(state) {
     const player = document.querySelector('lottie-player') || document.getElementById('lottie-canvas');
