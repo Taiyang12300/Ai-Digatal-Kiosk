@@ -105,16 +105,15 @@ function greetUser() {
 
 // 4. ค้นหาคำตอบ (Step 3) และ บันทึก Log ลงคอลัมน์ C (นับสถิติ Col E)
 async function getResponse(userQuery) {
-    console.log(`DEBUG: [Search] กำลังค้นหา (${currentLang}) -> "${userQuery}"`);
+    console.log(`DEBUG: [Search] รับคำถาม -> "${userQuery}" (${currentLang})`);
     isBusy = true;
     window.speechSynthesis.cancel(); 
 
-    // --- ส่วนที่ 1: บันทึกคำถามลง Google Sheets (คอลัมน์ C) เพื่อทำสถิติ ---
+    // --- ส่วนที่ 1: บันทึก Log ลงคอลัมน์ C (เพื่อให้ Col E นับจำนวน) ---
     if (userQuery && userQuery.trim() !== "") {
-        // ส่ง query ไปที่ GAS เพื่อบันทึกลงคอลัมน์ C ในหน้า FAQ
         fetch(`${GAS_URL}?query=${encodeURIComponent(userQuery.trim())}&action=logOnly`, { 
             mode: 'no-cors' 
-        }).catch(err => console.warn("บันทึกสถิติล้มเหลว:", err));
+        }).catch(err => console.warn("บันทึก FAQ ล้มเหลว:", err));
     }
 
     if (!localDatabase) {
@@ -125,22 +124,20 @@ async function getResponse(userQuery) {
 
     restartIdleTimer(); 
     hasGreeted = true; 
-    
     const query = userQuery.toLowerCase().trim();
     let bestMatch = { answer: "", score: 0 };
 
-    // --- ส่วนที่ 2: วนลูปหาคำตอบแบบ 3 แถว (Step 3) ---
+    // --- ส่วนที่ 2: วนลูปหาข้อมูลแบบกระโดดทีละ 3 แถว (Step 3) ---
     Object.keys(localDatabase).forEach(sheetName => {
-        // ข้ามหน้าที่ไม่ใช่ข้อมูลคำตอบ
         if (["Lottie_State", "Config", "FAQ"].includes(sheetName)) return;
 
         const sheetData = localDatabase[sheetName];
         
-        // วนลูปทีละ 3 แถว: i=Keywords, i+1=Thai, i+2=English
+        // i คือ Keywords | i+1 คือ ตอบไทย | i+2 คือ ตอบอังกฤษ
         for (let i = 0; i < sheetData.length; i += 3) {
             const rawKey = sheetData[i] && sheetData[i][0] ? sheetData[i][0].toString().toLowerCase().trim() : "";
             
-            // เลือกคำตอบตามภาษาปัจจุบัน
+            // เลือกคำตอบ (แถว i+1 หรือ i+2) ตามภาษาที่เลือก
             let ans = "";
             if (currentLang === 'th') {
                 ans = sheetData[i+1] && sheetData[i+1][0] ? sheetData[i+1][0].toString().trim() : "";
@@ -150,7 +147,7 @@ async function getResponse(userQuery) {
 
             if (!rawKey || !ans) continue;
 
-            // แยก Keywords และคำนวณคะแนน
+            // ตรรกะค้นหา Keywords เดิมของคุณ
             const keywordsArray = rawKey.split(/\s+/); 
             keywordsArray.forEach(key => {
                 if (key.length <= 2) return;
@@ -169,8 +166,8 @@ async function getResponse(userQuery) {
         speak(bestMatch.answer);
     } else {
         const fallback = currentLang === 'th' ? 
-            "ขออภัยครับ น้องนำทางไม่พบข้อมูลเรื่องนี้" : 
-            "I'm sorry, I couldn't find any information on that topic.";
+            "ขออภัยครับ ไม่พบข้อมูลเรื่องนี้" : 
+            "Sorry, I couldn't find any information on this topic.";
         displayResponse(fallback);
         speak(fallback);
     }
