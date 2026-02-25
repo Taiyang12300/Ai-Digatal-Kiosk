@@ -308,10 +308,20 @@ function updateLottie(state) {
     );
 
     if (match && match[1]) {
-        if (typeof player.load === 'function') {
-            player.load(match[1]);
-        } else {
-            player.src = match[1];
+        const newSrc = match[1];
+        
+        // ถ้าเป็นไฟล์เดิมอยู่แล้ว ไม่ต้องโหลดใหม่ให้เสียจังหวะ แต่สั่งให้เล่น (play) ต่อได้เลย
+        if (player.src !== newSrc) {
+            if (typeof player.load === 'function') {
+                player.load(newSrc);
+            } else {
+                player.src = newSrc;
+            }
+        }
+
+        // มั่นใจว่า Lottie จะเล่นแน่นอน (Looping ควรกำหนดในตัว lottie-player อยู่แล้ว)
+        if (typeof player.play === 'function') {
+            player.play();
         }
     }
 }
