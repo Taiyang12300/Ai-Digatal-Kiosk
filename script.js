@@ -1,4 +1,4 @@
-สอบถามข้อมูลเบื้องต้นกับน้องนำทางได้นะครับามข้อมูลกับผมได้นะครับามข้อมูลกับผมได้นะครับ * สมองกลน้องนำทาง - ฉบับปรับปรุง (AI Object Detection & Bilingual Integration)
+ * สมองกลน้องนำทาง - ฉบับปรับปรุง (AI Object Detection & Bilingual Integration)
  * โครงสร้างข้อมูลหลัก: แถว 1 Keywords | แถว 2 ตอบไทย | แถว 3 ตอบอังกฤษ
  * โครงสร้าง FAQ: Col A: ปุ่มไทย | Col B: ปุ่มอังกฤษ | Col C: คำถามหลักที่ถูกถาม (Logging)
  */
@@ -77,7 +77,7 @@ async function initCamera() {
 }
 
 async function detectPerson() {
-    if (!isDetecting || isBusy || !cocoModel) { requestAnimationFrame(detectPerson); return; }
+    if (!isDetecting || isBusy || !cocoModel) { setTimeout(detectPerson, 1000); return; }
     
     const predictions = await cocoModel.detect(video);
     const person = predictions.find(p => {
@@ -109,7 +109,7 @@ async function detectPerson() {
             hasGreeted = false;
         }
     }
-    requestAnimationFrame(detectPerson);
+    setTimeout(detectPerson, 500); 
 }
 
 function greetUser() {
