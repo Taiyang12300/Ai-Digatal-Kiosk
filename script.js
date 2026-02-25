@@ -109,7 +109,7 @@ async function getResponse(userQuery) {
     isBusy = true;
     window.speechSynthesis.cancel(); 
 
-    // --- ส่วนที่ 1: บันทึก Log ลงคอลัมน์ C (เพื่อให้ Col E นับจำนวน) ---
+    // --- 1. บันทึกคำถามลงคอลัมน์ C ใน Google Sheets ---
     if (userQuery && userQuery.trim() !== "") {
         fetch(`${GAS_URL}?query=${encodeURIComponent(userQuery.trim())}&action=logOnly`, { 
             mode: 'no-cors' 
@@ -124,50 +124,60 @@ async function getResponse(userQuery) {
 
     restartIdleTimer(); 
     hasGreeted = true; 
+    
     const query = userQuery.toLowerCase().trim();
     let bestMatch = { answer: "", score: 0 };
 
-    // --- ส่วนที่ 2: วนลูปหาข้อมูลแบบกระโดดทีละ 3 แถว (Step 3) ---
+    // --- 2. วนลูปหาข้อมูลจากทุกหน้า (ยกเว้นหน้าที่ไม่ใช่เนื้อหา) ---
     Object.keys(localDatabase).forEach(sheetName => {
         if (["Lottie_State", "Config", "FAQ"].includes(sheetName)) return;
 
-        const sheetData = localDatabase[sheetName];
-        
-        // i คือ Keywords | i+1 คือ ตอบไทย | i+2 คือ ตอบอังกฤษ
-        for (let i = 0; i < sheetData.length; i += 3) {
-            const rawKey = sheetData[i] && sheetData[i][0] ? sheetData[i][0].toString().toLowerCase().trim() : "";
-            
-            // เลือกคำตอบ (แถว i+1 หรือ i+2) ตามภาษาที่เลือก
+        localDatabase[sheetName].forEach((item) => {
+            // item[0] = Keywords/หัวข้อ
+            const rawKey = item[0] ? item[0].toString().toLowerCase().trim() : "";
+            if (!rawKey) return;
+
+            // --- ส่วนสำคัญ: การเลือกคำตอบตามภาษาและเงื่อนไขค่าว่าง ---
             let ans = "";
             if (currentLang === 'th') {
-                ans = sheetData[i+1] && sheetData[i+1][0] ? sheetData[i+1][0].toString().trim() : "";
+                // ภาษาไทย: ดึงจาก item[1]
+                ans = item[1] ? item[1].toString().trim() : "ขออภัยครับ ไม่พบข้อมูลเนื้อหาภาษาไทย";
             } else {
-                ans = sheetData[i+2] && sheetData[i+2][0] ? sheetData[i+2][0].toString().trim() : "";
+                // ภาษาอังกฤษ: ดึงจาก item[2]
+                const engAns = item[2] ? item[2].toString().trim() : "";
+                
+                // เงื่อนไขของคุณ: ถ้าภาษาอังกฤษว่าง ให้ตอบขออภัยเป็นภาษาอังกฤษ
+                ans = (engAns !== "") ? engAns : "I'm sorry, I couldn't find information on this topic in English. Please contact the officer at the counter.";
             }
 
-            if (!rawKey || !ans) continue;
-
-            // ตรรกะค้นหา Keywords เดิมของคุณ
+            // --- 3. ตรรกะการหา Keyword (อ้างอิงจากโค้ดเดิมที่ดึงถูก) ---
             const keywordsArray = rawKey.split(/\s+/); 
             keywordsArray.forEach(key => {
-                if (key.length <= 2) return;
-                let currentScore = query.includes(key) ? (0.9 + (key.length / 100)) : calculateSimilarity(query, key);
+                if (key.length <= 2) return; 
+
+                let currentScore = 0;
+                if (query.includes(key)) {
+                    currentScore = 0.9 + (key.length / 100); 
+                } else {
+                    currentScore = calculateSimilarity(query, key);
+                }
 
                 if (currentScore > bestMatch.score) {
                     bestMatch = { answer: ans, score: currentScore };
                 }
             });
-        }
+        });
     });
 
-    // แสดงคำตอบ
+    // --- 4. แสดงผลลัพธ์ ---
     if (bestMatch.score >= 0.45) {
         displayResponse(bestMatch.answer);
         speak(bestMatch.answer);
     } else {
-        const fallback = currentLang === 'th' ? 
-            "ขออภัยครับ ไม่พบข้อมูลเรื่องนี้" : 
-            "Sorry, I couldn't find any information on this topic.";
+        // กรณีหา Keyword ไม่เจอเลย
+        const fallback = (currentLang === 'th') 
+            ? "ขออภัยครับ น้องนำทางไม่พบข้อมูลเรื่องนี้ กรุณาติดต่อเจ้าหน้าที่ที่เคาท์เตอร์ครับ" 
+            : "I'm sorry, I couldn't find any information on this topic. Please contact the officer at the counter.";
         displayResponse(fallback);
         speak(fallback);
     }
