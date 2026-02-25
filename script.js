@@ -1,4 +1,4 @@
-สอบถามข้อมูลเบื้องต้นกับน้องนำทางได้นะครับามข้อมูลกับผมได้นะครับามข้อมูลกับผมได้นะครับ * สมองกลน้องนำทาง - ฉบับปรับปรุง (AI Object Detection & Bilingual Integration)
+ * สมองกลน้องนำทาง - ฉบับปรับปรุง (AI Object Detection & Bilingual Integration)
  * โครงสร้างข้อมูลหลัก: แถว 1 Keywords | แถว 2 ตอบไทย | แถว 3 ตอบอังกฤษ
  * โครงสร้าง FAQ: Col A: ปุ่มไทย | Col B: ปุ่มอังกฤษ | Col C: คำถามหลักที่ถูกถาม (Logging)
  */
@@ -310,19 +310,15 @@ function updateLottie(state) {
     if (match && match[1]) {
         const newSrc = match[1];
         
-        // ถ้าเป็นไฟล์เดิมอยู่แล้ว ไม่ต้องโหลดใหม่ให้เสียจังหวะ แต่สั่งให้เล่น (play) ต่อได้เลย
-        if (player.src !== newSrc) {
-            if (typeof player.load === 'function') {
-                player.load(newSrc);
-            } else {
-                player.src = newSrc;
+        // ใช้ requestAnimationFrame เพื่อลดภาระเครื่อง ป้องกันการค้าง
+        requestAnimationFrame(() => {
+            if (player.src !== newSrc) {
+                player.src = newSrc; // เปลี่ยน src ตรงๆ เสถียรที่สุด
             }
-        }
-
-        // มั่นใจว่า Lottie จะเล่นแน่นอน (Looping ควรกำหนดในตัว lottie-player อยู่แล้ว)
-        if (typeof player.play === 'function') {
-            player.play();
-        }
+            if (typeof player.play === 'function') {
+                player.play();
+            }
+        });
     }
 }
 
