@@ -185,13 +185,12 @@ async function getResponse(userQuery) {
     isBusy = true;
     window.speechSynthesis.cancel(); 
 
-    // --- ส่วนที่เพิ่มใหม่: ส่งคำถามไปบันทึกลง Google Sheets (FAQ คอลัมน์ B) ---
+    // --- ส่วนบันทึก FAQ ลง Google Sheets ---
     if (userQuery && userQuery.trim() !== "") {
         fetch(`${GAS_URL}?query=${encodeURIComponent(userQuery.trim())}&action=logOnly`, { 
             mode: 'no-cors' 
         }).catch(err => console.warn("บันทึก FAQ ล้มเหลว:", err));
     }
-    // -----------------------------------------------------------------
 
     if (!localDatabase) {
         displayResponse("กรุณารอสักครู่ น้องนำทางกำลังเตรียมข้อมูลครับ...");
@@ -204,24 +203,43 @@ async function getResponse(userQuery) {
     
     const query = userQuery.toLowerCase().trim();
     let bestMatch = { answer: "", score: 0 };
-    let foundExact = false;
 
+    // --- ส่วนที่ปรับปรุงใหม่: วนลูปหา Keyword แบบแยกคำ (Split) ---
     Object.keys(localDatabase).forEach(sheetName => {
         if (["Lottie_State", "Config", "FAQ"].includes(sheetName)) return;
-        if (foundExact) return;
 
         localDatabase[sheetName].forEach((item) => {
-            const key = item[0] ? item[0].toString().toLowerCase().trim() : "";
+            // item[0] คือ แถวบน (Keywords), item[1] คือ แถวล่าง (Answer)
+            const rawKey = item[0] ? item[0].toString().toLowerCase().trim() : "";
             const ans = item[1] ? item[1].toString().trim() : "";
-            if (!key || !ans) return;
+            if (!rawKey || !ans) return;
 
-            let score = (query === key) ? 1.0 : (query.includes(key) ? 0.8 : calculateSimilarity(query, key));
-            if (score > bestMatch.score) bestMatch = { answer: ans, score: score };
-            if (score === 1.0) foundExact = true;
+            // หั่นคำใน Header ออกเป็น Array (เช่น "เสริมคอก เสริมหลังคา" -> ["เสริมคอก", "เสริมหลังคา"])
+            const keywordsArray = rawKey.split(/\s+/); 
+            
+            keywordsArray.forEach(key => {
+                if (key.length <= 2) return; // ข้ามคำที่สั้นเกินไป
+
+                let currentScore = 0;
+                
+                // 1. ถ้าสิ่งที่ผู้ใช้พูด มีคำคีย์เวิร์ดนี้อยู่ (ความแม่นยำสูง)
+                if (query.includes(key)) {
+                    currentScore = 0.9 + (key.length / 100); // ให้คะแนนสูงตามความยาวคำ
+                } 
+                // 2. ถ้าไม่เจอตรงๆ ให้ใช้ Similarity เดิมช่วย
+                else {
+                    currentScore = calculateSimilarity(query, key);
+                }
+
+                if (currentScore > bestMatch.score) {
+                    bestMatch = { answer: ans, score: currentScore };
+                }
+            });
         });
     });
 
-    if (bestMatch.score >= 0.50) {
+    // แสดงคำตอบ (ปรับเกณฑ์คะแนนเล็กน้อย)
+    if (bestMatch.score >= 0.45) {
         displayResponse(bestMatch.answer);
         speak(bestMatch.answer);
     } else {
