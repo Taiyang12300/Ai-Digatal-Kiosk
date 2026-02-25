@@ -116,8 +116,8 @@ function greetUser() {
     if (hasGreeted || isBusy) return; 
     isBusy = true; 
     const greetings = {
-        th: ["สวัสดีครับ มีอะไรให้น้องนำทางช่วยไหมครับ?", "สำนักงานขนส่งสวัสดีครับ สอบถามข้อมูลกับผมได้นะครับ"],
-        en: ["Hello! How can I help you today?", "Welcome! Please feel free to ask any questions."]
+        th: ["สวัสดีครับ มีอะไรให้น้องนำทางช่วยไหมครับ?", "สำนักงานขนส่งพยัคฆภูมิพิสัยสวัสดีครับ สอบถามข้อมูลกับผมได้นะครับ", "สอบถามข้อมูลเบื้องต้นกับน้องนำทางได้นะครับ"],
+        en: ["Hello! How can I help you today?", "Welcome! Please feel free to ask any questions.", "Please feel free to ask me for any basic information."]
     };
     const selected = greetings[currentLang] || greetings['th'];
     const randomGreeting = selected[Math.floor(Math.random() * selected.length)];
