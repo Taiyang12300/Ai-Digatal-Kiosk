@@ -300,6 +300,7 @@ function speak(text) {
     msg.onend = () => {
         console.log("DEBUG: [Lottie] พูดจบแล้ว -> กลับเป็น idle");
         updateLottie('idle'); // สั่งให้ Lottie กลับมานิ่ง
+        isBusy = false;
         restartIdleTimer();    // เริ่มนับเวลาถอยหลังการรีเซ็ตหน้าจอ
     };
     // --------------------------
