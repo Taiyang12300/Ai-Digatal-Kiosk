@@ -18,6 +18,7 @@ let isDetecting = true;
 let hasGreeted = false;
 let personInFrameTime = null; 
 let isBusy = false; 
+let lastGreeting = "";
 
 // 1. เริ่มต้นระบบ
 async function initDatabase() {
@@ -116,7 +117,7 @@ function greetUser() {
     if (hasGreeted || isBusy) return; 
     isBusy = true; 
 
-    // ดึงเวลาปัจจุบันมาเช็ค (0-23)
+    // --- ส่วนเช็คช่วงเวลา ---
     const hour = new Date().getHours();
     let timeGreetingTH = "สวัสดีครับ";
     let timeGreetingEN = "Good day";
@@ -129,6 +130,7 @@ function greetUser() {
         timeGreetingEN = "Good afternoon";
     }
 
+    // --- รายการประโยคทักทาย ---
     const greetings = {
         th: [
             `${timeGreetingTH} มีอะไรให้น้องนำทางช่วยไหมครับ?`,
@@ -142,9 +144,21 @@ function greetUser() {
         ]
     };
     
-    const selected = greetings[currentLang] || greetings['th'];
-    const randomGreeting = selected[Math.floor(Math.random() * selected.length)];
-    
+    const selectedList = greetings[currentLang] || greetings['th'];
+    let randomGreeting;
+
+    // --- ตรรกะการสุ่มแบบห้ามซ้ำคำล่าสุด ---
+    if (selectedList.length > 1) {
+        do {
+            randomGreeting = selectedList[Math.floor(Math.random() * selectedList.length)];
+        } while (randomGreeting === lastGreeting); // ถ้าสุ่มได้คำเดิม ให้สุ่มใหม่จนกว่าจะเปลี่ยนคำ
+    } else {
+        randomGreeting = selectedList[0];
+    }
+
+    // บันทึกคำที่เพิ่งพูดไป เพื่อใช้เช็คในรอบถัดไป
+    lastGreeting = randomGreeting;
+
     displayResponse(randomGreeting);
     speak(randomGreeting);
     hasGreeted = true; 
