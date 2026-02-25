@@ -178,7 +178,6 @@ async function getResponse(userQuery) {
 
 // 5. ปรับปรุง FAQ (Col A: ไทย | Col B: อังกฤษ)
 function renderFAQButtons() {
-function renderFAQButtons() {
     const container = document.getElementById('faq-container');
     if (!container || !localDatabase["FAQ"]) return;
     container.innerHTML = "";
