@@ -145,8 +145,11 @@
 
   <div class="display-box" id="response-text">(กำลังเตรียมระบบ AI...)</div>
 
-  <div class="faq-title"><i class="fas fa-star"></i> คำถามที่พบบ่อย:</div>
-  <div id="faq-container" class="faq-grid"></div>
+  <div class="faq-title" id="faq-title-text">
+    <i class="fas fa-star"></i> คำถามที่พบบ่อย:
+</div>
+
+<div id="faq-container" class="faq-grid"></div>
 
   <div class="input-section">
     <input type="text" id="userInput" placeholder="พิมพ์คำถามที่นี่..." onkeypress="handleKeyPress(event)">
@@ -169,27 +172,40 @@
 
     /* --- ส่วนที่เพิ่ม: ฟังก์ชันสลับภาษาทางฝั่ง HTML --- */
     function changeLang(lang) {
-      if (typeof currentLang !== 'undefined') currentLang = lang;
-      
-      // สลับสถานะปุ่มใน UI
-      document.getElementById('btn-th').classList.toggle('active', lang === 'th');
-      document.getElementById('btn-en').classList.toggle('active', lang === 'en');
-      
-      const isTh = (lang === 'th');
-      document.getElementById('userInput').placeholder = isTh ? "พิมพ์คำถามที่นี่..." : "Type your question here...";
-      document.getElementById('statusText').innerText = isTh ? "แตะไมค์เพื่อเริ่มพูด" : "Tap mic to speak";
-      
-      if (recognition) recognition.lang = isTh ? 'th-TH' : 'en-US';
+  if (typeof currentLang !== 'undefined') currentLang = lang;
+  
+  document.getElementById('btn-th').classList.toggle('active', lang === 'th');
+  document.getElementById('btn-en').classList.toggle('active', lang === 'en');
+  
+  const isTh = (lang === 'th');
+  
+  // เปลี่ยน Placeholder และล้างค่าค้างเก่า
+  const userInput = document.getElementById('userInput');
+  userInput.placeholder = isTh ? "พิมพ์คำถามที่นี่..." : "Type your question here...";
+  userInput.value = ""; 
 
-      // สั่งให้ AI ทักทายใหม่ตามภาษาที่เลือก (ถ้าโหลดฐานข้อมูลแล้ว)
-      if (typeof hasGreeted !== 'undefined') {
-        hasGreeted = false;
-        if (typeof greetUser === "function") greetUser();
-      }
+  document.getElementById('statusText').innerText = isTh ? "แตะไมค์เพื่อเริ่มพูด" : "Tap mic to speak";
+  
+  // --- เพิ่ม: เปลี่ยนหัวข้อ FAQ Title ---
+  const faqTitle = document.getElementById('faq-title-text');
+  if (faqTitle) {
+      faqTitle.innerHTML = isTh ? '<i class="fas fa-star"></i> คำถามที่พบบ่อย:' : '<i class="fas fa-star"></i> Frequently Asked Questions:';
+  }
 
-      // วาดปุ่ม FAQ ใหม่ตามภาษา
-      if (typeof renderFAQButtons === "function") renderFAQButtons();
+  if (recognition) recognition.lang = isTh ? 'th-TH' : 'en-US';
+
+  // รีเซ็ตสถานะการทักทายเพื่อให้ AI ทักทายด้วยภาษาใหม่
+  if (typeof hasGreeted !== 'undefined') {
+    hasGreeted = false;
+    // ทักทายใหม่ทันทีถ้าไม่ได้ยุ่งอยู่
+    if (typeof isBusy !== 'undefined' && !isBusy && typeof greetUser === "function") {
+        greetUser();
     }
+  }
+
+  // วาดปุ่มใหม่ (ดึง Col A หรือ Col B ตามภาษา)
+  if (typeof renderFAQButtons === "function") renderFAQButtons();
+}
     /* ------------------------------------------ */
 
     if (SpeechRecognition) {
