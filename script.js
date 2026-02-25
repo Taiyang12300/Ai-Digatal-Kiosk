@@ -45,6 +45,23 @@ async function initDatabase() {
 
 // 2. ระบบ Reset
 function resetToHome() {
+    // 1. ตรวจสอบว่าน้องยังพูดไม่จบใช่หรือไม่? 
+    // หากกำลังพูดอยู่ (Speaking) ให้เริ่มนับเวลา Idle ใหม่อีกครั้ง และหยุดการรีเซ็ต
+    if (window.speechSynthesis.speaking) {
+        console.log("DEBUG: [System] ยังพูดไม่จบ เลื่อนการรีเซ็ตออกไป");
+        restartIdleTimer(); 
+        return;
+    }
+
+    // 2. ตรวจสอบว่า AI ยังตรวจจับคนได้อยู่ในช่วง 5 วินาทีล่าสุดหรือไม่?
+    // ถ้ายังมีคนยืนอยู่ (personInFrameTime ไม่เป็น null) ให้เริ่มนับเวลา Idle ใหม่อีกครั้ง
+    if (personInFrameTime !== null) {
+        console.log("DEBUG: [System] ยังมีคนอยู่หน้าตู้ เลื่อนการรีเซ็ตออกไป");
+        restartIdleTimer();
+        return;
+    }
+
+    // --- ถ้าผ่านเงื่อนไขด้านบนมาได้ (ไม่มีคนอยู่และพูดจบแล้ว) ถึงจะทำการรีเซ็ตจริงๆ ---
     console.log("DEBUG: [System] รีเซ็ตหน้าจอเริ่มต้น");
     window.speechSynthesis.cancel(); 
     displayResponse("กดปุ่มไมค์เพื่อสอบถามข้อมูลได้เลยครับ");
