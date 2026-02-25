@@ -11,7 +11,7 @@ const GAS_URL = "https://script.google.com/macros/s/AKfycbz1bkIsQ588u-rpjY-8nMly
 let currentLang = 'th'; // ตัวแปรคุมภาษาหลัก
 let idleTimer; 
 const IDLE_TIME_LIMIT = 30000; 
-
+let lastSeenTime = 0;
 let video = document.getElementById('video');
 let cocoModel = null; 
 let isDetecting = true; 
@@ -38,16 +38,21 @@ async function initDatabase() {
 
 // 2. ระบบ Reset หน้าจอ
 function resetToHome() {
+    // แก้ไข: ถ้ากำลังพูดอยู่ หรือ AI ยังเห็นคนยืนอยู่หน้าตู้ 
+    // ให้ต่อเวลา (Restart Timer) ไปเรื่อยๆ และ "ห้าม" รีเซ็ต hasGreeted
     if (window.speechSynthesis.speaking || personInFrameTime !== null) {
         restartIdleTimer(); 
         return;
     }
+
+    // ส่วนนี้จะทำงานเฉพาะเมื่อ "ไม่มีคนอยู่จริงๆ" เท่านั้น
     window.speechSynthesis.cancel(); 
     const welcomeMsg = currentLang === 'th' ? "กดปุ่มไมค์เพื่อสอบถามข้อมูลได้เลยครับ" : "Please tap the microphone to ask for information.";
     displayResponse(welcomeMsg);
     updateLottie('idle');
+    
     isBusy = false; 
-    hasGreeted = false; 
+    hasGreeted = false; // รีเซ็ตตรงนี้ปลอดภัย เพราะคนเดินออกไปแล้ว
     isDetecting = true; 
     personInFrameTime = null;
     restartIdleTimer();
@@ -73,18 +78,36 @@ async function initCamera() {
 
 async function detectPerson() {
     if (!isDetecting || isBusy || !cocoModel) { requestAnimationFrame(detectPerson); return; }
+    
     const predictions = await cocoModel.detect(video);
     const person = predictions.find(p => {
         const [x, y, width, height] = p.bbox;
         return p.class === "person" && p.score > 0.65 && width > 160;
     });
+
     if (person) {
-        restartIdleTimer(); 
-        if (personInFrameTime === null) personInFrameTime = Date.now();
-        else if (Date.now() - personInFrameTime >= 5000 && !hasGreeted) greetUser();
-    } else if (personInFrameTime !== null && (Date.now() - personInFrameTime > 10000)) {
-        personInFrameTime = null;
-        hasGreeted = false;
+        restartIdleTimer(); // ยื้อเวลา Idle ไว้ ไม่ให้หน้าจอกลับหน้าโฮม
+        
+        if (personInFrameTime === null) {
+            personInFrameTime = Date.now();
+        } 
+        
+        // ยืนแช่ 5 วินาทีค่อยทัก (ตามโค้ดคุณ) และต้องยังไม่ได้ทัก
+        if (Date.now() - personInFrameTime >= 5000 && !hasGreeted) {
+            greetUser();
+        }
+        
+        // เก็บเวลาล่าสุดที่เห็นคนไว้
+        lastSeenTime = Date.now(); 
+
+    } else {
+        // แก้ไข: ถ้าไม่เจอคน ให้รอจนแน่ใจว่าเขาไปแล้วจริงๆ (เช่น 10-15 วินาที)
+        // เพื่อไม่ให้ hasGreeted ดีดกลับเป็น false เร็วเกินไปจนทักซ้ำคนเดิม
+        if (personInFrameTime !== null && (Date.now() - lastSeenTime > 15000)) { 
+            console.log("DEBUG: Person actually left. Resetting...");
+            personInFrameTime = null;
+            hasGreeted = false;
+        }
     }
     requestAnimationFrame(detectPerson);
 }
