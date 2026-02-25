@@ -277,64 +277,62 @@ function editDistance(s1, s2) {
 }
 
 function speak(text) {
-    // 1. ล้างคิวเสียงเก่า
+    // 1. เคลียร์คิวเสียงเก่า
     window.speechSynthesis.cancel(); 
     isBusy = true; 
 
-    // 2. เตรียมข้อความ
+    // 2. เตรียมข้อความและวัตถุเสียง
     const cleanText = text.replace(/[*#-]/g, ""); 
     const msg = new SpeechSynthesisUtterance(cleanText);
     msg.lang = 'th-TH';
     
-    // ตั้งค่าความเร็ว (Rate) ให้พอดีสำหรับแท็บเล็ต (0.9 - 1.0 ฟังง่ายสุด)
+    // ตั้งค่าความเร็วให้ฟังง่าย (0.9 - 1.0 กำลังดีสำหรับข้อมูลบริการ)
     msg.rate = 1.0; 
     msg.pitch = 1.0;
 
-    // 3. ฟังก์ชันเลือกเสียง (รองรับการโหลดช้าบน Chrome)
-    const setVoice = () => {
-        const voices = window.speechSynthesis.getVoices();
-        // ค้นหาเสียงภาษาไทย: เน้น Google หรือ Narisa หรือตัวไหนก็ได้ที่เป็น th-TH
-        const femaleVoice = voices.find(v => v.lang.includes('th') && (v.name.includes('Google') || v.name.includes('Narisa'))) 
-                           || voices.find(v => v.lang.includes('th'));
-        
-        if (femaleVoice) {
-            msg.voice = femaleVoice;
-        }
-    };
+    // 3. ดึงรายการเสียง (เลือกตัวที่เขียนว่า Google)
+    const voices = window.speechSynthesis.getVoices();
+    
+    // พยายามหาเสียงภาษาไทยที่เป็นของ Google โดยเฉพาะ
+    const googleThaiVoice = voices.find(v => v.lang.includes('th') && v.name.includes('Google'));
+    
+    if (googleThaiVoice) {
+        msg.voice = googleThaiVoice;
+        console.log("DEBUG: [TTS] ใช้เสียง Google Thai Voice");
+    } else {
+        // แผนสำรอง: ถ้าหา Google ไม่เจอ ให้ใช้เสียงภาษาไทยตัวแรกที่มี
+        const anyThaiVoice = voices.find(v => v.lang.includes('th'));
+        if (anyThaiVoice) msg.voice = anyThaiVoice;
+    }
 
-    setVoice();
-
-    // 4. ตั้งค่า Events
+    // 4. ตั้งค่าสถานะการทำงาน
     msg.onstart = () => { 
-        console.log("DEBUG: [TTS] เริ่มพูด...");
         updateLottie('talking'); 
+        console.log("DEBUG: [TTS] เริ่มการอ่านออกเสียง...");
     };
 
     msg.onend = () => { 
-        console.log("DEBUG: [TTS] พูดจบแล้ว");
         updateLottie('idle'); 
         isBusy = false; 
         restartIdleTimer();
+        console.log("DEBUG: [TTS] อ่านออกเสียงจบแล้ว");
     };
 
-    msg.onerror = (event) => { 
-        console.error("DEBUG ERROR: [TTS] เกิดข้อผิดพลาด:", event.error);
+    msg.onerror = (e) => { 
+        console.error("DEBUG ERROR: [TTS] เกิดข้อผิดพลาด:", e);
         isBusy = false; 
         updateLottie('idle');
     };
 
-    // 5. สั่งพูด (ใส่ Delay เล็กน้อยสำหรับ Chrome บน Mobile เพื่อให้ระบบล้าง Cancel ทัน)
+    // 5. สั่งพูด (ใส่หน่วงเวลาสั้นๆ 100ms เพื่อให้ระบบ Android เคลียร์สถานะทัน)
     setTimeout(() => {
         window.speechSynthesis.speak(msg);
     }, 100);
 }
 
-// 💡 หัวใจสำคัญสำหรับ Chrome แท็บเล็ต: บังคับให้โหลด Voices ทันทีที่เปิดเว็บ
-if (typeof speechSynthesis !== 'undefined' && speechSynthesis.onvoiceschanged !== undefined) {
-    speechSynthesis.onvoiceschanged = () => {
-        console.log("DEBUG: [TTS] รายการเสียงถูกอัปเดตแล้ว");
-        window.speechSynthesis.getVoices();
-    };
+// 💡 สำคัญ: บังคับให้เบราว์เซอร์อัปเดตรายการเสียงทันทีเมื่อเปิดหน้าเว็บ
+if (window.speechSynthesis.onvoiceschanged !== undefined) {
+    window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
 }
 
 function updateLottie(state) {
