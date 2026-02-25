@@ -17,6 +17,39 @@
     
     .avatar-container { width: 180px; height: 180px; margin-bottom: 15px; border-radius: 50%; background: white; box-shadow: 0 5px 15px rgba(0,0,0,0.05); overflow: hidden; }
     
+    /* --- เพิ่มเติม CSS สำหรับปุ่มสลับภาษา --- */
+    .lang-container {
+      width: 90%;
+      max-width: 500px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    .btn-lang {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: 25px;
+      border: 2px solid #e0e0e0;
+      background: white;
+      color: #636e72;
+      font-family: 'Sarabun', sans-serif;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .btn-lang .flag { font-size: 20px; }
+    .btn-lang.active {
+      border-color: var(--primary);
+      background: #f0edff;
+      color: var(--primary);
+      box-shadow: 0 4px 10px rgba(108, 92, 231, 0.2);
+    }
+    /* ---------------------------------- */
+
     .display-box { 
       background: white; 
       border-radius: 20px; 
@@ -92,6 +125,14 @@
 </head>
 <body>
 
+  <div class="lang-container">
+    <button onclick="changeLang('th')" id="btn-th" class="btn-lang active">
+      <span class="flag">🇹🇭</span> TH
+    </button>
+    <button onclick="changeLang('en')" id="btn-en" class="btn-lang">
+      <span class="flag">🇺🇸</span> EN
+    </button>
+  </div>
   <div class="avatar-container">
     <lottie-player id="lottie-canvas" src="https://assets10.lottiefiles.com/packages/lf20_mbye9mxo.json" background="transparent" speed="1" loop autoplay></lottie-player>
   </div>
@@ -120,6 +161,34 @@
     let recognition, isListening = false;
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
+    /* --- เพิ่มเติม ฟังก์ชันสลับภาษา --- */
+    function changeLang(lang) {
+      if (typeof currentLang !== 'undefined') currentLang = lang;
+      
+      // อัปเดต UI ปุ่ม active
+      document.getElementById('btn-th').classList.toggle('active', lang === 'th');
+      document.getElementById('btn-en').classList.toggle('active', lang === 'en');
+      
+      const isTh = (lang === 'th');
+      
+      // เปลี่ยน Placeholder และคำอธิบายไมค์
+      document.getElementById('userInput').placeholder = isTh ? "พิมพ์คำถามที่นี่..." : "Type your question here...";
+      document.getElementById('statusText').innerText = isTh ? "แตะไมค์เพื่อเริ่มพูด" : "Tap mic to speak";
+      
+      // เปลี่ยนภาษาของ Mic Recognition
+      if (recognition) recognition.lang = isTh ? 'th-TH' : 'en-US';
+
+      // เรียกทักทายใหม่ตามภาษา (หากฟังก์ชันมีรองรับ)
+      if (typeof greetUser === "function") {
+        hasGreeted = false; // รีเซ็ตเพื่อให้ AI ยอมทักทายภาษาใหม่
+        greetUser();
+      }
+      
+      // วาดปุ่ม FAQ ใหม่
+      if (typeof renderFAQButtons === "function") renderFAQButtons();
+    }
+    /* ------------------------------ */
+
     if (SpeechRecognition) {
       recognition = new SpeechRecognition();
       recognition.lang = 'th-TH';
@@ -129,29 +198,27 @@
       recognition.onstart = () => {
         isListening = true;
         document.getElementById('micBtn').classList.add('recording');
-        document.getElementById('statusText').innerText = "กำลังฟัง... พูดให้จบประโยคนะคะ";
-        // ปิดระบบตรวจจับคนชั่วคราวขณะฟัง เพื่อไม่ให้เสียงทักทายแทรก
+        const isTh = (recognition.lang === 'th-TH');
+        document.getElementById('statusText').innerText = isTh ? "กำลังฟัง... พูดให้จบประโยคนะคะ" : "Listening... please speak";
         if (typeof isDetecting !== 'undefined') isDetecting = false; 
       };
 
       recognition.onresult = (event) => {
         const text = event.results[0][0].transcript;
-        document.getElementById('statusText').innerText = "กำลังสรุปคำถาม...";
+        const isTh = (recognition.lang === 'th-TH');
+        document.getElementById('statusText').innerText = isTh ? "กำลังสรุปคำถาม..." : "Processing...";
         setTimeout(() => { processQuery(text); }, 800); 
       };
 
-      // แก้ไข: ถ้าหยุดฟัง (ไม่ว่าพูดจบหรือเงียบไปเอง) ให้เช็คสถานะเพื่อกลับมา idle
       recognition.onend = () => { 
         stopListening(); 
         setTimeout(() => {
-          // ถ้าไม่ได้กำลังค้นหาคำตอบ (isBusy เป็น false) ให้คืนร่างเป็น idle
           if (typeof isBusy !== 'undefined' && !isBusy) {
             if (typeof updateLottie === "function") { updateLottie('idle'); }
           }
         }, 150);
       };
 
-      // แก้ไข: ถ้าเกิด Error เช่น ไมค์ไม่ทำงาน หรือเงียบจนหมดเวลา
       recognition.onerror = (event) => {
         console.warn("Speech recognition error:", event.error);
         stopListening();
@@ -172,7 +239,8 @@
 
     async function processQuery(query) {
       const output = document.getElementById('response-text');
-      output.innerText = "กำลังค้นหาคำตอบ...";
+      const isTh = (currentLang === 'th');
+      output.innerText = isTh ? "กำลังค้นหาคำตอบ..." : "Searching for answer...";
       if (typeof getResponse === "function") {
         await getResponse(query); 
       }
@@ -184,7 +252,6 @@
       } else { 
         try { 
           window.speechSynthesis.cancel(); 
-          // แก้ไข: กดปุ่มปุ๊บ เปลี่ยนร่างเป็น thinking ทันที
           if (typeof updateLottie === "function") { updateLottie('thinking'); }
           recognition.start(); 
         } catch(e) { 
@@ -197,7 +264,8 @@
     function stopListening() {
       isListening = false;
       document.getElementById('micBtn').classList.remove('recording');
-      document.getElementById('statusText').innerText = "แตะไมค์เพื่อเริ่มพูด";
+      const isTh = (currentLang === 'th');
+      document.getElementById('statusText').innerText = isTh ? "แตะไมค์เพื่อเริ่มพูด" : "Tap mic to speak";
     }
   </script>
 </body>
