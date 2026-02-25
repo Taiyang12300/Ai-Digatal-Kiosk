@@ -277,25 +277,64 @@ function editDistance(s1, s2) {
 }
 
 function speak(text) {
+    // 1. ล้างคิวเสียงเก่า
     window.speechSynthesis.cancel(); 
     isBusy = true; 
+
+    // 2. เตรียมข้อความ
     const cleanText = text.replace(/[*#-]/g, ""); 
     const msg = new SpeechSynthesisUtterance(cleanText);
     msg.lang = 'th-TH';
     
-    const voices = window.speechSynthesis.getVoices();
-    const femaleVoice = voices.find(v => v.lang.includes('th') && (v.name.includes('Google') || v.name.includes('Narisa')));
-    if (femaleVoice) msg.voice = femaleVoice;
+    // ตั้งค่าความเร็ว (Rate) ให้พอดีสำหรับแท็บเล็ต (0.9 - 1.0 ฟังง่ายสุด)
+    msg.rate = 1.0; 
+    msg.pitch = 1.0;
 
-    msg.onstart = () => { updateLottie('talking'); };
+    // 3. ฟังก์ชันเลือกเสียง (รองรับการโหลดช้าบน Chrome)
+    const setVoice = () => {
+        const voices = window.speechSynthesis.getVoices();
+        // ค้นหาเสียงภาษาไทย: เน้น Google หรือ Narisa หรือตัวไหนก็ได้ที่เป็น th-TH
+        const femaleVoice = voices.find(v => v.lang.includes('th') && (v.name.includes('Google') || v.name.includes('Narisa'))) 
+                           || voices.find(v => v.lang.includes('th'));
+        
+        if (femaleVoice) {
+            msg.voice = femaleVoice;
+        }
+    };
+
+    setVoice();
+
+    // 4. ตั้งค่า Events
+    msg.onstart = () => { 
+        console.log("DEBUG: [TTS] เริ่มพูด...");
+        updateLottie('talking'); 
+    };
+
     msg.onend = () => { 
+        console.log("DEBUG: [TTS] พูดจบแล้ว");
         updateLottie('idle'); 
         isBusy = false; 
         restartIdleTimer();
     };
-    msg.onerror = () => { isBusy = false; };
 
-    window.speechSynthesis.speak(msg);
+    msg.onerror = (event) => { 
+        console.error("DEBUG ERROR: [TTS] เกิดข้อผิดพลาด:", event.error);
+        isBusy = false; 
+        updateLottie('idle');
+    };
+
+    // 5. สั่งพูด (ใส่ Delay เล็กน้อยสำหรับ Chrome บน Mobile เพื่อให้ระบบล้าง Cancel ทัน)
+    setTimeout(() => {
+        window.speechSynthesis.speak(msg);
+    }, 100);
+}
+
+// 💡 หัวใจสำคัญสำหรับ Chrome แท็บเล็ต: บังคับให้โหลด Voices ทันทีที่เปิดเว็บ
+if (typeof speechSynthesis !== 'undefined' && speechSynthesis.onvoiceschanged !== undefined) {
+    speechSynthesis.onvoiceschanged = () => {
+        console.log("DEBUG: [TTS] รายการเสียงถูกอัปเดตแล้ว");
+        window.speechSynthesis.getVoices();
+    };
 }
 
 function updateLottie(state) {
