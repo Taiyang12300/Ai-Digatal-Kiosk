@@ -1,3 +1,4 @@
+/**
  * สมองกลน้องนำทาง - ฉบับปรับปรุง (AI Object Detection & Bilingual Integration)
  * โครงสร้างข้อมูลหลัก: แถว 1 Keywords | แถว 2 ตอบไทย | แถว 3 ตอบอังกฤษ
  * โครงสร้าง FAQ: Col A: ปุ่มไทย | Col B: ปุ่มอังกฤษ | Col C: คำถามหลักที่ถูกถาม (Logging)
@@ -77,7 +78,7 @@ async function initCamera() {
 }
 
 async function detectPerson() {
-    if (!isDetecting || isBusy || !cocoModel) { setTimeout(detectPerson, 1000); return; }
+    if (!isDetecting || isBusy || !cocoModel) { requestAnimationFrame(detectPerson); return; }
     
     const predictions = await cocoModel.detect(video);
     const person = predictions.find(p => {
@@ -109,7 +110,7 @@ async function detectPerson() {
             hasGreeted = false;
         }
     }
-    setTimeout(detectPerson, 500); 
+    requestAnimationFrame(detectPerson);
 }
 
 function greetUser() {
@@ -335,6 +336,4 @@ function editDistance(s1, s2) {
         if (i > 0) costs[s2.length] = lastValue;
     }
     return costs[s2.length];
-}
-
-initDatabase();
+สอบถามข้อมูลกับผมได้นะครับด้นะครับด้นะครับ
