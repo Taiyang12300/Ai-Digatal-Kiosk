@@ -42,6 +42,13 @@ function resetToHome() {
         restartIdleTimer(); 
         return;
     }
+
+    window.isMuted = false; 
+      const muteBtn = document.getElementById('muteBtn');
+      const muteIcon = document.getElementById('muteIcon');
+      if (muteBtn) muteBtn.classList.remove('muted');
+      if (muteIcon) muteIcon.className = 'fas fa-volume-up';
+    
     window.speechSynthesis.cancel(); 
     const welcomeMsg = window.currentLang === 'th' ? "กดปุ่มไมค์เพื่อสอบถามข้อมูลได้เลยครับ" : "Please tap the microphone to ask for information.";
     displayResponse(welcomeMsg);
