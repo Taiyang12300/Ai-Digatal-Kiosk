@@ -1,63 +1,53 @@
 /**
  * สมองกลน้องนำทาง - เวอร์ชั่นเสถียร (Anti-Freeze Edition)
- * รองรับ: ทักทายตามเวลา, สลับภาษา, ระบบ Mute (Volume 0), และบันทึก Log
  */
 
-let localDatabase = null;
+// ใช้ window. เพื่อให้ HTML เรียกใช้และแก้ไขได้โดยตรง
+window.localDatabase = null;
+window.currentLang = 'th'; 
+window.isMuted = false; 
+window.isBusy = false; 
+window.hasGreeted = false;
+
 const GAS_URL = "https://script.google.com/macros/s/AKfycbz1bkIsQ588u-rpjY-8nMlya5_c0DsIabRvyPyCC_sPs5vyeJ_1wcOBaqKfg7cvlM3XJw/exec"; 
 
-// --- ตัวแปรระบบ ---
-let currentLang = 'th'; 
-let isMuted = false; // เชื่อมกับสถานะใน HTML (ผ่านฟังก์ชัน toggleMute)
-let isBusy = false; 
 let idleTimer; 
 const IDLE_TIME_LIMIT = 30000; 
-
 let video = document.getElementById('video');
 let cocoModel = null; 
 let isDetecting = true; 
-let hasGreeted = false;
 let personInFrameTime = null; 
 let lastSeenTime = 0;
 let lastGreeting = "";
 
 // 1. เริ่มต้นระบบ
 async function initDatabase() {
-    console.log("DEBUG: [Init] เริ่มโหลดฐานข้อมูล...");
     try {
         const res = await fetch(GAS_URL, { redirect: 'follow' });
         const json = await res.json();
         if (json.database) {
-            localDatabase = json.database;
+            window.localDatabase = json.database;
             cocoModel = await cocoSsd.load();
-            
-            // ล้างสถานะเสียงที่อาจค้างจาก Page Refresh
             window.speechSynthesis.cancel();
-            
             renderFAQButtons();
             initCamera(); 
-            displayResponse(currentLang === 'th' ? "กดปุ่มไมค์เพื่อสอบถามข้อมูลได้เลยค่ะ" : "Please tap the microphone to ask for information.");
+            displayResponse(window.currentLang === 'th' ? "กดปุ่มไมค์เพื่อสอบถามข้อมูลได้เลยค่ะ" : "Please tap the microphone to ask for information.");
         }
-    } catch (e) {
-        console.error("System Load Error:", e);
-    }
+    } catch (e) { console.error("System Load Error:", e); }
 }
 
-// 2. ระบบ Reset หน้าจอ (ยื้อเวลาถ้ายังมีคนอยู่)
+// 2. ระบบ Reset หน้าจอ
 function resetToHome() {
     if (window.speechSynthesis.speaking || personInFrameTime !== null) {
         restartIdleTimer(); 
         return;
     }
-
     window.speechSynthesis.cancel(); 
-    const welcomeMsg = currentLang === 'th' ? "กดปุ่มไมค์เพื่อสอบถามข้อมูลได้เลยค่ะ" : "Please tap the microphone to ask for information.";
+    const welcomeMsg = window.currentLang === 'th' ? "กดปุ่มไมค์เพื่อสอบถามข้อมูลได้เลยค่ะ" : "Please tap the microphone to ask for information.";
     displayResponse(welcomeMsg);
     updateLottie('idle');
-    
-    isBusy = false; 
-    hasGreeted = false; 
-    personInFrameTime = null;
+    window.isBusy = false; 
+    window.hasGreeted = false; 
     restartIdleTimer();
 }
 
@@ -80,96 +70,64 @@ async function initCamera() {
 }
 
 async function detectPerson() {
-    if (!isDetecting || isBusy || !cocoModel) { requestAnimationFrame(detectPerson); return; }
-    
+    if (!isDetecting || window.isBusy || !cocoModel) { requestAnimationFrame(detectPerson); return; }
     const predictions = await cocoModel.detect(video);
-    const person = predictions.find(p => {
-        const [x, y, width] = p.bbox;
-        const centerX = x + (width / 2);
-        // ตรวจจับเฉพาะคนที่อยู่กลางเฟรมและยืนใกล้ (กว้าง > 160px)
-        return p.class === "person" && p.score > 0.65 && width > 160 && (centerX > 64 && centerX < 256);
-    });
+    const person = predictions.find(p => p.class === "person" && p.score > 0.65 && p.bbox[2] > 160);
 
     if (person) {
         restartIdleTimer();
         if (personInFrameTime === null) personInFrameTime = Date.now();
-        
-        // ยืนแช่ 3 วินาทีค่อยทัก
-        if (Date.now() - personInFrameTime >= 3000 && !hasGreeted) {
-            greetUser();
-        }
+        if (Date.now() - personInFrameTime >= 3000 && !window.hasGreeted) greetUser();
         lastSeenTime = Date.now(); 
     } else {
-        // ถ้าคนเดินออกไปเกิน 10 วินาที ให้รีเซ็ตสถานะการทักทายเพื่อรอทักคนใหม่
         if (personInFrameTime !== null && (Date.now() - lastSeenTime > 10000)) { 
             personInFrameTime = null;
-            hasGreeted = false;
+            window.hasGreeted = false;
         }
     }
     requestAnimationFrame(detectPerson);
 }
 
-// 4. ทักทายตามช่วงเวลา
 function greetUser() {
-    if (hasGreeted || isBusy) return; 
-    isBusy = true; 
-
+    if (window.hasGreeted || window.isBusy) return; 
+    window.isBusy = true; 
     const hour = new Date().getHours();
     let thTime = hour < 12 ? "สวัสดีตอนเช้าค่ะ" : (hour < 18 ? "สวัสดีตอนบ่ายค่ะ" : "สวัสดีค่ะ");
     let enTime = hour < 12 ? "Good morning" : (hour < 18 ? "Good afternoon" : "Good day");
 
     const greetings = {
-        th: [`${thTime} มีอะไรให้น้องนำทางช่วยไหมคะ?`, "สำนักงานขนส่งพยัคฆภูมิพิสัยสวัสดีค่ะ สอบถามข้อมูลกับหนูได้นะ", "สอบถามข้อมูลเบื้องต้นกับน้องนำทางได้นะคะ"],
-        en: [`${enTime}! How can I help you?`, "Welcome! Please feel free to ask any questions.", "How can I assist you today?"]
+        th: [`${thTime} มีอะไรให้น้องนำทางช่วยไหมคะ?`, "สำนักงานขนส่งพยัคฆภูมิพิสัยสวัสดีค่ะ", "สอบถามข้อมูลกับน้องนำทางได้นะคะ"],
+        en: [`${enTime}! How can I help you?`, "Welcome! Please feel free to ask questions.", "How can I assist you today?"]
     };
     
-    const list = greetings[currentLang] || greetings['th'];
-    let finalGreet;
-    do {
-        finalGreet = list[Math.floor(Math.random() * list.length)];
-    } while (finalGreet === lastGreeting && list.length > 1);
-
-    lastGreeting = finalGreet;
+    const list = greetings[window.currentLang] || greetings['th'];
+    let finalGreet = list[Math.floor(Math.random() * list.length)];
     displayResponse(finalGreet);
     speak(finalGreet);
-    hasGreeted = true; 
+    window.hasGreeted = true; 
 }
 
-// 5. ค้นหาคำตอบ (Bilingual + Logging)
 async function getResponse(userQuery) {
     if (!userQuery) return;
-    isBusy = true;
+    window.isBusy = true;
     window.speechSynthesis.cancel(); 
-
-    // บันทึก Log ลง Google Sheets (Column C)
-    fetch(`${GAS_URL}?query=${encodeURIComponent(userQuery.trim())}&action=logOnly`, { mode: 'no-cors' })
-        .catch(e => console.warn("Log failed", e));
+    fetch(`${GAS_URL}?query=${encodeURIComponent(userQuery.trim())}&action=logOnly`, { mode: 'no-cors' });
 
     restartIdleTimer(); 
-    hasGreeted = true; 
-    
+    window.hasGreeted = true; 
     const query = userQuery.toLowerCase().trim();
     let bestMatch = { answer: "", score: 0 };
 
-    Object.keys(localDatabase).forEach(sheetName => {
+    Object.keys(window.localDatabase).forEach(sheetName => {
         if (["Lottie_State", "Config", "FAQ"].includes(sheetName)) return;
-
-        localDatabase[sheetName].forEach((item) => {
+        window.localDatabase[sheetName].forEach((item) => {
             const rawKey = item[0] ? item[0].toString().toLowerCase().trim() : "";
             if (!rawKey) return;
-
-            // เลือกคำตอบ (Index 1=TH, Index 2=EN)
-            let ans = "";
-            if (currentLang === 'th') {
-                ans = item[1] || "ขออภัยค่ะ ไม่พบข้อมูลเนื้อหาภาษาไทย";
-            } else {
-                ans = item[2] || "I'm sorry, I couldn't find this information in English. Please contact the counter.";
-            }
-
-            const keywordsArray = rawKey.split(/\s+/); 
-            keywordsArray.forEach(key => {
+            let ans = window.currentLang === 'th' ? (item[1] || "ไม่มีข้อมูล") : (item[2] || "No data in English");
+            
+            rawKey.split(/\s+/).forEach(key => {
                 if (key.length <= 2) return; 
-                let score = query.includes(key) ? 0.9 + (key.length / 100) : calculateSimilarity(query, key);
+                let score = query.includes(key) ? 0.95 : calculateSimilarity(query, key);
                 if (score > bestMatch.score) bestMatch = { answer: ans, score: score };
             });
         });
@@ -179,69 +137,40 @@ async function getResponse(userQuery) {
         displayResponse(bestMatch.answer);
         speak(bestMatch.answer);
     } else {
-        const fallback = (currentLang === 'th') ? "ขออภัยค่ะ น้องนำทางไม่พบข้อมูลเรื่องนี้ค่ะ" : "I'm sorry, I couldn't find information on that.";
+        const fallback = (window.currentLang === 'th') ? "ขออภัยค่ะ ไม่พบข้อมูลเรื่องนี้ค่ะ" : "I'm sorry, I couldn't find that.";
         displayResponse(fallback);
         speak(fallback);
     }
 }
 
-// 6. ระบบเสียง (Anti-Freeze & Mute Support)
 function speak(text) {
     if (!text) return;
     window.speechSynthesis.cancel(); 
-
     const msg = new SpeechSynthesisUtterance(text.replace(/[*#-]/g, ""));
-    msg.lang = (currentLang === 'th') ? 'th-TH' : 'en-US';
-    
-    // ตั้งค่า Volume: ถ้า Mute อยู่จะเป็น 0 (เล่นแบบเงียบ) ถ้าไม่ Mute จะเป็น 1
-    msg.volume = isMuted ? 0 : 1;
+    msg.lang = (window.currentLang === 'th') ? 'th-TH' : 'en-US';
+    msg.volume = window.isMuted ? 0 : 1;
 
-    // เลือกเสียงภาษาไทยถ้าเป็นโหมด TH
-    if (currentLang === 'th') {
+    if (window.currentLang === 'th') {
         const voices = window.speechSynthesis.getVoices();
-        const thVoice = voices.find(v => v.name.includes('Achara')) || voices.find(v => v.name.includes('Google ภาษาไทย'));
-        if (thVoice) msg.voice = thVoice;
+        msg.voice = voices.find(v => v.name.includes('Achara')) || voices.find(v => v.name.includes('Google ภาษาไทย'));
     }
 
     msg.onstart = () => updateLottie('talking');
-    msg.onend = () => { 
-        updateLottie('idle'); 
-        isBusy = false; 
-        restartIdleTimer(); 
-    };
-    
-    msg.onerror = () => {
-        updateLottie('idle');
-        isBusy = false;
-    };
-
+    msg.onend = () => { updateLottie('idle'); window.isBusy = false; restartIdleTimer(); };
     window.speechSynthesis.speak(msg);
 }
 
-// 7. UI & FAQ (Bilingual Buttons)
 function renderFAQButtons() {
     const container = document.getElementById('faq-container');
-    if (!container || !localDatabase || !localDatabase["FAQ"]) return;
-    
+    if (!container || !window.localDatabase || !window.localDatabase["FAQ"]) return;
     container.innerHTML = "";
-
-    localDatabase["FAQ"].slice(1).forEach((row) => {
-        // Col A = TH | Col B = EN
-        const qThai = row[0] ? row[0].toString().trim() : "";
-        const qEng  = row[1] ? row[1].toString().trim() : "";
-
-        let btnText = (currentLang === 'th') ? qThai : qEng;
-        
-        if (btnText !== "") {
+    window.localDatabase["FAQ"].slice(1).forEach((row) => {
+        const btnText = (window.currentLang === 'th') ? row[0] : row[1];
+        if (btnText) {
             const btn = document.createElement('button');
             btn.className = 'faq-btn';
             btn.innerText = btnText;
-            
-            btn.onclick = () => {
-                if (typeof getResponse === "function") {
-                    getResponse(btnText);
-                }
-            };
+            btn.onclick = () => getResponse(btnText);
             container.appendChild(btn);
         }
     });
@@ -255,7 +184,7 @@ function updateLottie(state) {
         'thinking': 'https://lottie.host/e742c203-f211-4521-a5aa-96cd5248d4b8/CKCd2cqmGj.json',
         'talking': 'https://lottie.host/79a24a65-7d74-4ff7-8ac5-bb3eeaa49073/4BES9eWBuE.json'
     };
-    if (assets[state]) player.load(assets[state]);
+    player.load(assets[state]);
 }
 
 function displayResponse(text) {
@@ -263,7 +192,6 @@ function displayResponse(text) {
     if (box) box.innerText = text;
 }
 
-// 8. การคำนวณความคล้ายคลึง (Fuzzy Search)
 function calculateSimilarity(s1, s2) {
     let longer = s1.length < s2.length ? s2 : s1;
     let shorter = s1.length < s2.length ? s1 : s2;
