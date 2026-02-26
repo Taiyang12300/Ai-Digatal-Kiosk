@@ -150,6 +150,12 @@
     // ฟังก์ชันสลับภาษา (แก้ให้เชื่อมกับ script.js)
     function changeLang(lang) {
       window.currentLang = lang; // เปลี่ยนค่าภาษาใน Global JS
+
+      window.isMuted = false; 
+      const muteBtn = document.getElementById('muteBtn');
+      const muteIcon = document.getElementById('muteIcon');
+      if (muteBtn) muteBtn.classList.remove('muted');
+      if (muteIcon) muteIcon.className = 'fas fa-volume-up';
       
       document.getElementById('btn-th').classList.toggle('active', lang === 'th');
       document.getElementById('btn-en').classList.toggle('active', lang === 'en');
