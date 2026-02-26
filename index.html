@@ -196,16 +196,21 @@
       }
     }
 
+    // --- ส่วนที่แก้ไข: ปรับปรุงการสลับภาษาให้ตัดเสียงและล้างสถานะทันที ---
     function changeLang(lang) {
+      // 1. สั่งหยุดเสียงทันทีและปลดล็อกสถานะ Busy เพื่อป้องกันระบบค้าง
+      window.speechSynthesis.cancel();
+      window.isBusy = false;
       window.currentLang = lang;
       
-      // บังคับเปิดเสียงเสมอเมื่อสลับภาษา
+      // 2. บังคับเปิดเสียงเสมอเมื่อสลับภาษา (Logic เดิมของคุณ)
       window.isMuted = false; 
       const muteBtn = document.getElementById('muteBtn');
       const muteIcon = document.getElementById('muteIcon');
       if (muteBtn) muteBtn.classList.remove('muted');
       if (muteIcon) muteIcon.className = 'fas fa-volume-up';
       
+      // 3. อัปเดต UI ปุ่ม
       document.getElementById('btn-th').classList.toggle('active', lang === 'th');
       document.getElementById('btn-en').classList.toggle('active', lang === 'en');
       
@@ -218,13 +223,17 @@
           faqTitle.innerHTML = isTh ? '<i class="fas fa-star"></i> คำถามที่พบบ่อย:' : '<i class="fas fa-star"></i> Frequently Asked Questions:';
       }
 
+      // 4. ล้างข้อความคำตอบเก่าทิ้งทันที
+      const output = document.getElementById('response-text');
+      output.innerText = isTh ? "เปลี่ยนเป็นภาษาไทยแล้วครับ มีอะไรให้ช่วยไหม?" : "Switched to English. How can I assist you?";
+
       if (recognition) recognition.lang = isTh ? 'th-TH' : 'en-US';
       if (typeof renderFAQButtons === "function") renderFAQButtons();
       
-      if (!window.isBusy) {
-        window.hasGreeted = false;
-        if (typeof greetUser === "function") greetUser();
-      }
+      // 5. รีเซ็ตตัวละครและทักทายใหม่
+      if (typeof updateLottie === "function") updateLottie('idle');
+      window.hasGreeted = false;
+      if (typeof greetUser === "function") greetUser();
     }
 
     if (SpeechRecognition) {
@@ -249,8 +258,11 @@
     
     function handleKeyPress(e) { if (e.key === 'Enter') handleManualInput(); }
 
+    // --- ส่วนที่แก้ไข: เมื่อถามคำถามใหม่ ให้ตัดเสียงภาษาเก่าทิ้งทันที ---
     async function processQuery(query) {
-      // บังคับเปิดเสียงเมื่อมีการถามคำถามใหม่
+      window.speechSynthesis.cancel(); // ตัดเสียงเก่า
+      window.isBusy = false; // เคลียร์สถานะเพื่อให้ทำงานต่อได้ทันที
+      
       window.isMuted = false;
       const muteBtn = document.getElementById('muteBtn');
       const muteIcon = document.getElementById('muteIcon');
