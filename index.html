@@ -15,24 +15,9 @@
     :root { --primary: #6c5ce7; --bg: #f9f9fb; --accent: #ff7675; }
     body { font-family: 'Sarabun', sans-serif; background: var(--bg); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
     
-    .avatar-container { width: 180px; height: 180px; margin-bottom: 15px; border-radius: 50%; background: white; box-shadow: 0 5px 15px rgba(0,0,0,0.05); overflow: hidden; }
+    ..avatar-container { width: 180px; height: 180px; margin-bottom: 15px; border-radius: 50%; background: white; box-shadow: 0 5px 15px rgba(0,0,0,0.05); overflow: hidden; }
     
-    .display-box { 
-      background: white; 
-      border-radius: 20px; 
-      padding: 25px; 
-      box-shadow: 0 10px 20px rgba(0,0,0,0.05); 
-      width: 90%; 
-      max-width: 500px; 
-      text-align: left; 
-      min-height: 150px; 
-      height: auto;      
-      font-size: 18px; 
-      margin-bottom: 20px; 
-      color: #2d3436; 
-      border-left: 6px solid var(--primary);
-      line-height: 1.6;
-    }
+    .display-box { background: white; border-radius: 20px; padding: 25px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); width: 90%; max-width: 500px; text-align: left; min-height: 80px; font-size: 18px; margin-bottom: 20px; color: #2d3436; overflow-y: auto; max-height: 200px; border-left: 6px solid var(--primary); }
     
     .faq-title { 
       width: 90%; 
