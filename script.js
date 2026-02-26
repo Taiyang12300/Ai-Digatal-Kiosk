@@ -1,4 +1,5 @@
-สอบถามข้อมูลเบื้องต้นกับน้องนำทางได้นะครับามข้อมูลกับผมได้นะครับามข้อมูลกับผมได้นะครับ * สมองกลน้องนำทาง - ฉบับปรับปรุง (AI Object Detection & Bilingual Integration)
+/**
+ * สมองกลน้องนำทาง - ฉบับปรับปรุง (AI Object Detection & Bilingual Integration)
  * โครงสร้างข้อมูลหลัก: แถว 1 Keywords | แถว 2 ตอบไทย | แถว 3 ตอบอังกฤษ
  * โครงสร้าง FAQ: Col A: ปุ่มไทย | Col B: ปุ่มอังกฤษ | Col C: คำถามหลักที่ถูกถาม (Logging)
  */
@@ -17,7 +18,6 @@ let isDetecting = true;
 let hasGreeted = false;
 let personInFrameTime = null; 
 let isBusy = false; 
-let lastGreeting = "";
 
 // 1. เริ่มต้นระบบ
 async function initDatabase() {
@@ -115,49 +115,12 @@ async function detectPerson() {
 function greetUser() {
     if (hasGreeted || isBusy) return; 
     isBusy = true; 
-
-    // --- ส่วนเช็คช่วงเวลา ---
-    const hour = new Date().getHours();
-    let timeGreetingTH = "สวัสดีครับ";
-    let timeGreetingEN = "Good day";
-
-    if (hour < 12) {
-        timeGreetingTH = "สวัสดีตอนเช้าครับ";
-        timeGreetingEN = "Good morning";
-    } else if (hour < 18) {
-        timeGreetingTH = "สวัสดีตอนบ่ายครับ";
-        timeGreetingEN = "Good afternoon";
-    }
-
-    // --- รายการประโยคทักทาย ---
     const greetings = {
-        th: [
-            `${timeGreetingTH} มีอะไรให้น้องนำทางช่วยไหมครับ?`,
-            "สำนักงานขนส่งพยัคฆภูมิพิสัยสวัสดีครับ สอบถามข้อมูลกับน้องนำทางได้นะครับ",
-            "สอบถามข้อมูลเบื้องต้นกับน้องนำทางได้นะครับ"
-        ],
-        en: [
-            `${timeGreetingEN}! How can I help you today?`,
-            "Welcome! Please feel free to ask any questions.",
-            "Please feel free to ask me for any basic information."
-        ]
+        th: ["สวัสดีครับ มีอะไรให้น้องนำทางช่วยไหมครับ?", "สำนักงานขนส่งพยัคฆภูมิพิสัยสวัสดีครับ สอบถามข้อมูลกับผมได้นะครับ", "สอบถามข้อมูลเบื้องต้นกับน้องนำทางได้นะครับ"],
+        en: ["Hello! How can I help you today?", "Welcome! Please feel free to ask any questions.", "Please feel free to ask me for any basic information."]
     };
-    
-    const selectedList = greetings[currentLang] || greetings['th'];
-    let randomGreeting;
-
-    // --- ตรรกะการสุ่มแบบห้ามซ้ำคำล่าสุด ---
-    if (selectedList.length > 1) {
-        do {
-            randomGreeting = selectedList[Math.floor(Math.random() * selectedList.length)];
-        } while (randomGreeting === lastGreeting); // ถ้าสุ่มได้คำเดิม ให้สุ่มใหม่จนกว่าจะเปลี่ยนคำ
-    } else {
-        randomGreeting = selectedList[0];
-    }
-
-    // บันทึกคำที่เพิ่งพูดไป เพื่อใช้เช็คในรอบถัดไป
-    lastGreeting = randomGreeting;
-
+    const selected = greetings[currentLang] || greetings['th'];
+    const randomGreeting = selected[Math.floor(Math.random() * selected.length)];
     displayResponse(randomGreeting);
     speak(randomGreeting);
     hasGreeted = true; 
