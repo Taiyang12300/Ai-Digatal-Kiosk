@@ -1,5 +1,5 @@
 /**
- * สมองกลน้องนำทาง
+ * สมองกลน้องนำทาง - เวอร์ชั่นเสถียร (Kiosk Optimized)
  */
 
 // ใช้ window. เพื่อให้ HTML เรียกใช้และแก้ไขได้โดยตรง
@@ -18,9 +18,19 @@ let cocoModel = null;
 let isDetecting = true; 
 let personInFrameTime = null; 
 let lastSeenTime = 0;
-let lastGreeting = "";
+let lastDetectionTime = 0; // สำหรับระบบ Throttling
+const DETECTION_INTERVAL = 400; // ตรวจจับทุก 0.4 วินาที (ลดภาระเครื่อง)
 
-// 1. เริ่มต้นระบบ
+// 1. ฟังก์ชันช่วยรีเซ็ตสถานะเสียง (เพื่อให้ปุ่มใน HTML เปลี่ยนตาม)
+function forceUnmute() {
+    window.isMuted = false;
+    const muteBtn = document.getElementById('muteBtn');
+    const muteIcon = document.getElementById('muteIcon');
+    if (muteBtn) muteBtn.classList.remove('muted');
+    if (muteIcon) muteIcon.className = 'fas fa-volume-up';
+}
+
+// 2. เริ่มต้นระบบ
 async function initDatabase() {
     try {
         const res = await fetch(GAS_URL, { redirect: 'follow' });
@@ -36,18 +46,14 @@ async function initDatabase() {
     } catch (e) { console.error("System Load Error:", e); }
 }
 
-// 2. ระบบ Reset หน้าจอ
+// 3. ระบบ Reset หน้าจอ
 function resetToHome() {
     if (window.speechSynthesis.speaking || personInFrameTime !== null) {
         restartIdleTimer(); 
         return;
     }
 
-    window.isMuted = false; 
-      const muteBtn = document.getElementById('muteBtn');
-      const muteIcon = document.getElementById('muteIcon');
-      if (muteBtn) muteBtn.classList.remove('muted');
-      if (muteIcon) muteIcon.className = 'fas fa-volume-up';
+    forceUnmute(); // บังคับเปิดเสียงเมื่อกลับหน้าแรก
     
     window.speechSynthesis.cancel(); 
     const welcomeMsg = window.currentLang === 'th' ? "กดปุ่มไมค์เพื่อสอบถามข้อมูลได้เลยครับ" : "Please tap the microphone to ask for information.";
@@ -63,7 +69,7 @@ function restartIdleTimer() {
     idleTimer = setTimeout(resetToHome, IDLE_TIME_LIMIT);
 }
 
-// 3. ระบบดวงตา AI (COCO-SSD)
+// 4. ระบบดวงตา AI (COCO-SSD) พร้อมระบบ Throttling ป้องกันเครื่องค้าง
 async function initCamera() {
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -77,7 +83,19 @@ async function initCamera() {
 }
 
 async function detectPerson() {
-    if (!isDetecting || window.isBusy || !cocoModel) { requestAnimationFrame(detectPerson); return; }
+    if (!isDetecting || window.isBusy || !cocoModel) { 
+        requestAnimationFrame(detectPerson); 
+        return; 
+    }
+
+    const now = Date.now();
+    // ถ้ายังไม่ถึงรอบการตรวจจับ (400ms) ให้ข้ามเฟรมนี้ไป
+    if (now - lastDetectionTime < DETECTION_INTERVAL) {
+        requestAnimationFrame(detectPerson);
+        return;
+    }
+    lastDetectionTime = now;
+
     const predictions = await cocoModel.detect(video);
     const person = predictions.find(p => p.class === "person" && p.score > 0.65 && p.bbox[2] > 160);
 
@@ -98,6 +116,8 @@ async function detectPerson() {
 function greetUser() {
     if (window.hasGreeted || window.isBusy) return; 
     window.isBusy = true; 
+    forceUnmute(); // เปิดเสียงเพื่อทักทาย
+
     const hour = new Date().getHours();
     let thTime = hour < 12 ? "สวัสดีตอนเช้าครับ" : (hour < 18 ? "สวัสดีตอนบ่ายครับ" : "สวัสดีครับ");
     let enTime = hour < 12 ? "Good morning" : (hour < 18 ? "Good afternoon" : "Good day");
@@ -117,6 +137,8 @@ function greetUser() {
 async function getResponse(userQuery) {
     if (!userQuery) return;
     window.isBusy = true;
+    forceUnmute(); // บังคับเปิดเสียงทุกครั้งที่มีการถามใหม่
+    
     window.speechSynthesis.cancel(); 
     fetch(`${GAS_URL}?query=${encodeURIComponent(userQuery.trim())}&action=logOnly`, { mode: 'no-cors' });
 
@@ -169,32 +191,19 @@ function speak(text) {
 
 function renderFAQButtons() {
     const container = document.getElementById('faq-container');
-    // ตรวจสอบว่ามีข้อมูลใน Database หรือไม่
-    if (!container || !window.localDatabase || !window.localDatabase["FAQ"]) {
-        console.warn("FAQ Data not ready yet...");
-        return;
-    }
+    if (!container || !window.localDatabase || !window.localDatabase["FAQ"]) return;
     
-    container.innerHTML = ""; // ล้างปุ่มเก่าออก
-
-    // เริ่มวนลูปจากแถวที่ 2 (slice(1)) เพื่อข้ามหัวข้อคอลัมน์
+    container.innerHTML = "";
     window.localDatabase["FAQ"].slice(1).forEach((row) => {
-        // คอลัมน์ A (index 0) = ไทย | คอลัมน์ B (index 1) = อังกฤษ
         const qThai = row[0] ? row[0].toString().trim() : "";
         const qEng  = row[1] ? row[1].toString().trim() : "";
-
-        // เลือกข้อความบนปุ่มตามภาษาปัจจุบัน
         let btnText = (window.currentLang === 'th') ? qThai : qEng;
         
-        // สร้างปุ่มเฉพาะเมื่อมีข้อความในภาษานั้นๆ
         if (btnText !== "") {
             const btn = document.createElement('button');
             btn.className = 'faq-btn';
             btn.innerText = btnText;
-            
-            btn.onclick = () => {
-                getResponse(btnText); // เรียกหาคำตอบ
-            };
+            btn.onclick = () => getResponse(btnText);
             container.appendChild(btn);
         }
     });
