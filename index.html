@@ -151,71 +151,42 @@
       if (typeof isMutedGlobal !== 'undefined') isMutedGlobal = isMuted;
     }
 
-    function changeLang(lang) {
-      if (typeof currentLang !== 'undefined') currentLang = lang;
-      
-      document.getElementById('btn-th').classList.toggle('active', lang === 'th');
-      document.getElementById('btn-en').classList.toggle('active', lang === 'en');
-      
-      const isTh = (lang === 'th');
-      const userInput = document.getElementById('userInput');
-      userInput.placeholder = isTh ? "พิมพ์คำถามที่นี่..." : "Type your question here...";
-      userInput.value = ""; 
+  function changeLang(lang) {
+  // เปลี่ยนค่าตัวแปร Global ที่ใช้ร่วมกับ script.js
+  currentLang = lang; 
+  
+  // อัปเดต UI ของปุ่ม
+  document.getElementById('btn-th').classList.toggle('active', lang === 'th');
+  document.getElementById('btn-en').classList.toggle('active', lang === 'en');
+  
+  const isTh = (lang === 'th');
+  const userInput = document.getElementById('userInput');
+  userInput.placeholder = isTh ? "พิมพ์คำถามที่นี่..." : "Type your question here...";
+  userInput.value = ""; 
 
-      document.getElementById('statusText').innerText = isTh ? "แตะไมค์เพื่อเริ่มพูด" : "Tap mic to speak";
-      
-      const faqTitle = document.getElementById('faq-title-text');
-      if (faqTitle) {
-          faqTitle.innerHTML = isTh ? '<i class="fas fa-star"></i> คำถามที่พบบ่อย:' : '<i class="fas fa-star"></i> Frequently Asked Questions:';
-      }
+  document.getElementById('statusText').innerText = isTh ? "แตะไมค์เพื่อเริ่มพูด" : "Tap mic to speak";
+  
+  const faqTitle = document.getElementById('faq-title-text');
+  if (faqTitle) {
+      faqTitle.innerHTML = isTh ? '<i class="fas fa-star"></i> คำถามที่พบบ่อย:' : '<i class="fas fa-star"></i> Frequently Asked Questions:';
+  }
 
-      if (recognition) recognition.lang = isTh ? 'th-TH' : 'en-US';
+  // อัปเดตภาษาของตัวจำเสียง (Speech Recognition)
+  if (recognition) {
+    recognition.lang = isTh ? 'th-TH' : 'en-US';
+  }
 
-      if (typeof hasGreeted !== 'undefined') {
-        hasGreeted = false;
-        if (typeof isBusy !== 'undefined' && !isBusy && typeof greetUser === "function") {
-            greetUser();
-        }
-      }
-      if (typeof renderFAQButtons === "function") renderFAQButtons();
-    }
+  // สั่งให้วาดปุ่ม FAQ ใหม่ตามภาษาที่เลือก
+  if (typeof renderFAQButtons === "function") {
+    renderFAQButtons();
+  }
 
-    if (SpeechRecognition) {
-      recognition = new SpeechRecognition();
-      recognition.lang = 'th-TH';
-      recognition.interimResults = false; 
-      recognition.continuous = false;    
-
-      recognition.onstart = () => {
-        isListening = true;
-        document.getElementById('micBtn').classList.add('recording');
-        const isTh = (recognition.lang === 'th-TH');
-        document.getElementById('statusText').innerText = isTh ? "กำลังฟัง... พูดให้จบประโยคนะคะ" : "Listening...";
-        if (typeof isDetecting !== 'undefined') isDetecting = false; 
-      };
-
-      recognition.onresult = (event) => {
-        const text = event.results[0][0].transcript;
-        const isTh = (recognition.lang === 'th-TH');
-        document.getElementById('statusText').innerText = isTh ? "กำลังสรุปคำถาม..." : "Processing...";
-        setTimeout(() => { processQuery(text); }, 800); 
-      };
-
-      recognition.onend = () => { 
-        stopListening(); 
-        setTimeout(() => {
-          if (typeof isBusy !== 'undefined' && !isBusy) {
-            if (typeof updateLottie === "function") { updateLottie('idle'); }
-          }
-        }, 150);
-      };
-
-      recognition.onerror = (event) => {
-        console.warn("Speech recognition error:", event.error);
-        stopListening();
-        if (typeof updateLottie === "function") { updateLottie('idle'); }
-      };
-    }
+  // ทักทายใหม่เมื่อเปลี่ยนภาษา (ถ้าไม่มีคนยืนอยู่)
+  if (!isBusy && typeof greetUser === "function") {
+    hasGreeted = false; // รีเซ็ตเพื่อให้ทักใหม่ในภาษาใหม่
+    greetUser();
+  }
+}
 
     function handleManualInput() {
       const input = document.getElementById('userInput');
