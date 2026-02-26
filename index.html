@@ -13,16 +13,34 @@
   
   <style>
     :root { --primary: #6c5ce7; --bg: #f9f9fb; --accent: #ff7675; }
-    body { font-family: 'Sarabun', sans-serif; background: var(--bg); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+    
+    body { 
+      font-family: 'Sarabun', sans-serif; 
+      background: var(--bg); 
+      margin: 0; 
+      padding: 0; 
+      display: flex; 
+      justify-content: center; 
+      min-height: 100vh;
+    }
+
+    /* Wrapper หลักเพื่อคุม Layout ไม่ให้พัง */
+    .main-container {
+      width: 100%;
+      max-width: 600px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
     
     /* --- ส่วนควบคุมด้านบน (ภาษา + ปิดเสียง) --- */
     .top-controls {
-      width: 90%;
-      max-width: 500px;
+      width: 100%;
       display: flex;
-      justify-content: space-between; /* แยกปุ่มปิดเสียงไว้ซ้าย ภาษาไว้ขวา */
+      justify-content: space-between;
       align-items: center;
-      margin-bottom: 15px;
+      margin-bottom: 25px;
     }
 
     .lang-container {
@@ -30,65 +48,86 @@
       gap: 10px;
     }
 
-      .btn-lang, .btn-mute {
+    .btn-lang, .btn-mute {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 8px; /* เพิ่มระยะห่างระหว่างธงกับข้อความ */
-      padding: 8px 15px; /* เพิ่ม padding ซ้าย-ขวาให้ดูเต็มขึ้น */
-      border-radius: 20px;
+      gap: 8px;
+      padding: 10px 16px;
+      border-radius: 25px;
       border: 2px solid #e0e0e0;
       background: white;
       color: #636e72;
-      font-size: 14px;
+      font-size: 15px;
       font-weight: 500;
       cursor: pointer;
       transition: all 0.2s;
-      min-width: 85px; /* เพิ่มความกว้างขั้นต่ำเพื่อให้ปุ่มดูสมดุลเมื่อมีรูปภาพ */
+      min-width: 90px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
     }
 
-    /* สไตล์สำหรับรูปภาพธงภายในปุ่ม */
+    .btn-mute { min-width: 55px; font-size: 18px; }
+
+    /* ตกแต่งรูปธงสำหรับตู้ Kiosk */
     .btn-lang img {
-      width: 22px; /* ขนาดธงที่พอดีกับสายตา */
+      width: 22px;
       height: auto;
-      border-radius: 2px; /* ลบมุมธงเล็กน้อยให้ซอฟต์ลง */
-      box-shadow: 0 1px 2px rgba(0,0,0,0.1); /* เพิ่มเงาบางๆ ให้รูปธงดูมีมิติ */
+      border-radius: 2px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
     }
 
     .btn-lang.active {
       border-color: var(--primary);
       background: #f0edff;
       color: var(--primary);
-      font-weight: bold; /* เน้นตัวหนาเมื่อถูกเลือก */
+      font-weight: bold;
     }
 
-    /* สไตล์ปุ่ม Mute เมื่อถูกปิดเสียง */
     .btn-mute.muted {
       background: var(--accent);
       color: white;
       border-color: var(--accent);
     }
-    /* ---------------------------------- */
     
-    .avatar-container { width: 180px; height: 180px; margin-bottom: 15px; border-radius: 50%; background: white; box-shadow: 0 5px 15px rgba(0,0,0,0.05); overflow: hidden; position: relative; }
+    /* --- ส่วนแสดงผลกลาง --- */
+    .avatar-container { 
+      width: 180px; 
+      height: 180px; 
+      margin-bottom: 20px; 
+      border-radius: 50%; 
+      background: white; 
+      box-shadow: 0 5px 15px rgba(0,0,0,0.05); 
+      overflow: hidden; 
+    }
     #lottie-canvas { width: 100%; height: 100%; }
 
     .display-box { 
-      background: white; border-radius: 20px; padding: 25px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); 
-      width: 90%; max-width: 500px; text-align: left; min-height: 150px; height: auto;      
-      font-size: 18px; margin-bottom: 20px; color: #2d3436; border-left: 6px solid var(--primary); line-height: 1.6;
+      background: white; 
+      border-radius: 20px; 
+      padding: 25px; 
+      box-shadow: 0 10px 20px rgba(0,0,0,0.05); 
+      width: 100%; 
+      box-sizing: border-box;
+      text-align: left; 
+      min-height: 140px; 
+      font-size: 18px; 
+      margin-bottom: 20px; 
+      color: #2d3436; 
+      border-left: 6px solid var(--primary); 
+      line-height: 1.6;
     }
     
-    .faq-title { width: 90%; max-width: 500px; margin: 20px 0 10px 0; font-weight: 500; color: #636e72; font-size: 16px; display: flex; align-items: center; gap: 8px; }
-    .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; width: 90%; max-width: 500px; margin-bottom: 30px; }
-    .faq-btn { padding: 15px 10px; background: white; color: var(--primary); border: 2px solid #e0e0ff; border-radius: 15px; font-size: 15px; cursor: pointer; transition: all 0.2s ease; font-weight: 500; min-height: 65px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
+    .faq-title { width: 100%; margin: 10px 0; font-weight: 500; color: #636e72; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+    .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; width: 100%; margin-bottom: 30px; }
+    .faq-btn { padding: 12px; background: white; color: var(--primary); border: 2px solid #e0e0ff; border-radius: 15px; font-size: 15px; cursor: pointer; transition: all 0.2s; font-weight: 500; min-height: 60px; display: flex; align-items: center; justify-content: center; text-align: center; }
     .faq-btn:active { transform: scale(0.95); background: var(--primary); color: white; }
 
-    .input-section { width: 90%; max-width: 500px; display: flex; gap: 10px; margin-bottom: 20px; }
+    /* --- ส่วนรับข้อมูล --- */
+    .input-section { width: 100%; display: flex; gap: 10px; margin-bottom: 20px; }
     #userInput { flex: 1; padding: 15px; border-radius: 30px; border: 2px solid #ddd; outline: none; font-family: 'Sarabun', sans-serif; font-size: 16px; }
-    .btn-send { width: 50px; height: 50px; border-radius: 50%; border: none; background: var(--primary); color: white; cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center; }
+    .btn-send { width: 50px; height: 50px; border-radius: 50%; border: none; background: var(--primary); color: white; cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 
-    .mic-section { margin-bottom: 20px; text-align: center; }
+    .mic-section { margin-bottom: 30px; text-align: center; }
     .btn-mic { width: 90px; height: 90px; border-radius: 50%; border: none; background: var(--primary); color: white; font-size: 35px; cursor: pointer; display: flex; align-items: center; justify-content: center; margin: 0 auto; box-shadow: 0 10px 20px rgba(108,92,231,0.3); }
     .btn-mic.recording { background: var(--accent); animation: pulse 1.5s infinite; }
 
@@ -97,51 +136,53 @@
 </head>
 <body>
 
-  <div class="top-controls">
-    <button onclick="toggleMute()" id="muteBtn" class="btn-mute" title="ปิด/เปิดเสียง">
-      <i id="muteIcon" class="fas fa-volume-up"></i>
-    </button>
+  <div class="main-container">
+    <div class="top-controls">
+      <button onclick="toggleMute()" id="muteBtn" class="btn-mute" title="ปิด/เปิดเสียง">
+        <i id="muteIcon" class="fas fa-volume-up"></i>
+      </button>
 
-  <div class="lang-container">
-  <button onclick="changeLang('th')" id="btn-th" class="btn-lang active">
-    <img src="https://flagcdn.com/w40/th.png" alt="Thai Flag"> TH
-  </button>
-  <button onclick="changeLang('en')" id="btn-en" class="btn-lang">
-    <img src="https://flagcdn.com/w40/us.png" alt="English Flag"> EN
-  </button>
-</div>
+      <div class="lang-container">
+        <button onclick="changeLang('th')" id="btn-th" class="btn-lang active">
+          <img src="https://flagcdn.com/w40/th.png" alt="TH"> TH
+        </button>
+        <button onclick="changeLang('en')" id="btn-en" class="btn-lang">
+          <img src="https://flagcdn.com/w40/us.png" alt="EN"> EN
+        </button>
+      </div>
+    </div>
 
-  <div class="avatar-container">
-    <lottie-player id="lottie-canvas" src="https://lottie.host/568e8594-a319-4491-bf10-a0f5c012fc76/6S3urqybG5.json" background="transparent" speed="1" loop autoplay></lottie-player>
-  </div>
+    <div class="avatar-container">
+      <lottie-player id="lottie-canvas" src="https://lottie.host/568e8594-a319-4491-bf10-a0f5c012fc76/6S3urqybG5.json" background="transparent" speed="1" loop autoplay></lottie-player>
+    </div>
 
-  <div class="display-box" id="response-text">(กำลังเตรียมระบบ AI...)</div>
+    <div class="display-box" id="response-text">(กำลังเตรียมระบบ AI...)</div>
 
-  <div class="faq-title" id="faq-title-text"><i class="fas fa-star"></i> คำถามที่พบบ่อย:</div>
-  <div id="faq-container" class="faq-grid"></div>
+    <div class="faq-title" id="faq-title-text"><i class="fas fa-star"></i> คำถามที่พบบ่อย:</div>
+    <div id="faq-container" class="faq-grid"></div>
 
-  <div class="input-section">
-    <input type="text" id="userInput" placeholder="พิมพ์คำถามที่นี่..." onkeypress="handleKeyPress(event)">
-    <button class="btn-send" onclick="handleManualInput()"><i class="fas fa-paper-plane"></i></button>
-  </div>
-  
-  <div class="mic-section">
-    <button id="micBtn" class="btn-mic" onclick="toggleListening()"><i class="fas fa-microphone"></i></button>
-    <p id="statusText" style="margin-top:10px; color: #636e72; font-size: 14px;">แตะไมค์เพื่อเริ่มพูด</p>
+    <div class="input-section">
+      <input type="text" id="userInput" placeholder="พิมพ์คำถามที่นี่..." onkeypress="handleKeyPress(event)">
+      <button class="btn-send" onclick="handleManualInput()"><i class="fas fa-paper-plane"></i></button>
+    </div>
+    
+    <div class="mic-section">
+      <button id="micBtn" class="btn-mic" onclick="toggleListening()"><i class="fas fa-microphone"></i></button>
+      <p id="statusText" style="margin-top:10px; color: #636e72; font-size: 14px;">แตะไมค์เพื่อเริ่มพูด</p>
+    </div>
   </div>
 
   <video id="video" width="320" height="240" autoplay muted playsinline style="display:none;"></video>
   <canvas id="motionCanvas" width="320" height="240" style="display:none;"></canvas>
 
-  <script src="script.js?v=1.8"></script>
+  <script src="script.js?v=1.9"></script>
 
   <script>
     let recognition, isListening = false;
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-    // ฟังก์ชันเปิด-ปิดเสียง (แก้ให้เชื่อมกับ script.js)
     function toggleMute() {
-      window.isMuted = !window.isMuted; // เปลี่ยนค่าใน Global JS
+      window.isMuted = !window.isMuted;
       const muteBtn = document.getElementById('muteBtn');
       const muteIcon = document.getElementById('muteIcon');
       
@@ -155,10 +196,10 @@
       }
     }
 
-    // ฟังก์ชันสลับภาษา (แก้ให้เชื่อมกับ script.js)
     function changeLang(lang) {
-      window.currentLang = lang; // เปลี่ยนค่าภาษาใน Global JS
-
+      window.currentLang = lang;
+      
+      // บังคับเปิดเสียงเสมอเมื่อสลับภาษา
       window.isMuted = false; 
       const muteBtn = document.getElementById('muteBtn');
       const muteIcon = document.getElementById('muteIcon');
@@ -177,19 +218,15 @@
           faqTitle.innerHTML = isTh ? '<i class="fas fa-star"></i> คำถามที่พบบ่อย:' : '<i class="fas fa-star"></i> Frequently Asked Questions:';
       }
 
-      // เปลี่ยนภาษาไมค์
       if (recognition) recognition.lang = isTh ? 'th-TH' : 'en-US';
-
-      // วาดปุ่มใหม่ และทักทายใหม่
       if (typeof renderFAQButtons === "function") renderFAQButtons();
       
       if (!window.isBusy) {
-        window.hasGreeted = false; // ยอมให้ AI ทักทายใหม่ในภาษาที่เลือก
+        window.hasGreeted = false;
         if (typeof greetUser === "function") greetUser();
       }
     }
 
-    // --- ส่วนของ Speech Recognition (คงเดิมแต่เปลี่ยนตัวแปรอ้างอิง) ---
     if (SpeechRecognition) {
       recognition = new SpeechRecognition();
       recognition.lang = 'th-TH';
@@ -209,9 +246,17 @@
       const input = document.getElementById('userInput');
       if (input.value.trim()) { processQuery(input.value.trim()); input.value = ''; }
     }
+    
     function handleKeyPress(e) { if (e.key === 'Enter') handleManualInput(); }
 
     async function processQuery(query) {
+      // บังคับเปิดเสียงเมื่อมีการถามคำถามใหม่
+      window.isMuted = false;
+      const muteBtn = document.getElementById('muteBtn');
+      const muteIcon = document.getElementById('muteIcon');
+      if (muteBtn) muteBtn.classList.remove('muted');
+      if (muteIcon) muteIcon.className = 'fas fa-volume-up';
+
       const output = document.getElementById('response-text');
       output.innerText = (window.currentLang === 'th') ? "กำลังค้นหา..." : "Searching...";
       if (typeof getResponse === "function") await getResponse(query);
@@ -231,6 +276,6 @@
       document.getElementById('micBtn').classList.remove('recording');
       document.getElementById('statusText').innerText = (window.currentLang === 'th') ? "แตะไมค์เพื่อเริ่มพูด" : "Tap mic to speak";
     }
-</script>
+  </script>
 </body>
 </html>
