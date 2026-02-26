@@ -1,5 +1,5 @@
 /**
- * สมองกลน้องนำทาง - เวอร์ชั่นเสถียร (Anti-Freeze Edition)
+ * สมองกลน้องนำทาง
  */
 
 // ใช้ window. เพื่อให้ HTML เรียกใช้และแก้ไขได้โดยตรง
@@ -31,7 +31,7 @@ async function initDatabase() {
             window.speechSynthesis.cancel();
             renderFAQButtons();
             initCamera(); 
-            displayResponse(window.currentLang === 'th' ? "กดปุ่มไมค์เพื่อสอบถามข้อมูลได้เลยค่ะ" : "Please tap the microphone to ask for information.");
+            displayResponse(window.currentLang === 'th' ? "กดปุ่มไมค์เพื่อสอบถามข้อมูลได้เลยครับ" : "Please tap the microphone to ask for information.");
         }
     } catch (e) { console.error("System Load Error:", e); }
 }
@@ -43,7 +43,7 @@ function resetToHome() {
         return;
     }
     window.speechSynthesis.cancel(); 
-    const welcomeMsg = window.currentLang === 'th' ? "กดปุ่มไมค์เพื่อสอบถามข้อมูลได้เลยค่ะ" : "Please tap the microphone to ask for information.";
+    const welcomeMsg = window.currentLang === 'th' ? "กดปุ่มไมค์เพื่อสอบถามข้อมูลได้เลยครับ" : "Please tap the microphone to ask for information.";
     displayResponse(welcomeMsg);
     updateLottie('idle');
     window.isBusy = false; 
@@ -92,11 +92,11 @@ function greetUser() {
     if (window.hasGreeted || window.isBusy) return; 
     window.isBusy = true; 
     const hour = new Date().getHours();
-    let thTime = hour < 12 ? "สวัสดีตอนเช้าค่ะ" : (hour < 18 ? "สวัสดีตอนบ่ายค่ะ" : "สวัสดีค่ะ");
+    let thTime = hour < 12 ? "สวัสดีตอนเช้าครับ" : (hour < 18 ? "สวัสดีตอนบ่ายครับ" : "สวัสดีครับ");
     let enTime = hour < 12 ? "Good morning" : (hour < 18 ? "Good afternoon" : "Good day");
 
     const greetings = {
-        th: [`${thTime} มีอะไรให้น้องนำทางช่วยไหมคะ?`, "สำนักงานขนส่งพยัคฆภูมิพิสัยสวัสดีค่ะ", "สอบถามข้อมูลกับน้องนำทางได้นะคะ"],
+        th: [`${thTime} มีอะไรให้น้องนำทางช่วยไหมครับ?`, "สำนักงานขนส่งพยัคฆภูมิพิสัยสวัสดีครับ", "สอบถามข้อมูลกับน้องนำทางได้นะครับ"],
         en: [`${enTime}! How can I help you?`, "Welcome! Please feel free to ask questions.", "How can I assist you today?"]
     };
     
@@ -137,7 +137,7 @@ async function getResponse(userQuery) {
         displayResponse(bestMatch.answer);
         speak(bestMatch.answer);
     } else {
-        const fallback = (window.currentLang === 'th') ? "ขออภัยค่ะ ไม่พบข้อมูลเรื่องนี้ค่ะ" : "I'm sorry, I couldn't find that.";
+        const fallback = (window.currentLang === 'th') ? "ขออภัย น้องนำทางไม่มีข้อมูลเรื่องนี้ครับ กรุณาติดต่อเจ้าหน้าที่ที่เคาท์เตอร์ครับ" : "I'm sorry, I couldn't find any information on this topic. Please contact the officer at the counter.";
         displayResponse(fallback);
         speak(fallback);
     }
@@ -162,15 +162,32 @@ function speak(text) {
 
 function renderFAQButtons() {
     const container = document.getElementById('faq-container');
-    if (!container || !window.localDatabase || !window.localDatabase["FAQ"]) return;
-    container.innerHTML = "";
+    // ตรวจสอบว่ามีข้อมูลใน Database หรือไม่
+    if (!container || !window.localDatabase || !window.localDatabase["FAQ"]) {
+        console.warn("FAQ Data not ready yet...");
+        return;
+    }
+    
+    container.innerHTML = ""; // ล้างปุ่มเก่าออก
+
+    // เริ่มวนลูปจากแถวที่ 2 (slice(1)) เพื่อข้ามหัวข้อคอลัมน์
     window.localDatabase["FAQ"].slice(1).forEach((row) => {
-        const btnText = (window.currentLang === 'th') ? row[0] : row[1];
-        if (btnText) {
+        // คอลัมน์ A (index 0) = ไทย | คอลัมน์ B (index 1) = อังกฤษ
+        const qThai = row[0] ? row[0].toString().trim() : "";
+        const qEng  = row[1] ? row[1].toString().trim() : "";
+
+        // เลือกข้อความบนปุ่มตามภาษาปัจจุบัน
+        let btnText = (window.currentLang === 'th') ? qThai : qEng;
+        
+        // สร้างปุ่มเฉพาะเมื่อมีข้อความในภาษานั้นๆ
+        if (btnText !== "") {
             const btn = document.createElement('button');
             btn.className = 'faq-btn';
             btn.innerText = btnText;
-            btn.onclick = () => getResponse(btnText);
+            
+            btn.onclick = () => {
+                getResponse(btnText); // เรียกหาคำตอบ
+            };
             container.appendChild(btn);
         }
     });
