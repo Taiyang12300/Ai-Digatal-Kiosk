@@ -187,7 +187,6 @@
       const muteIcon = document.getElementById('muteIcon');
       
       if (window.isMuted) {
-        window.speechSynthesis.cancel();
         muteBtn.classList.add('muted');
         muteIcon.className = 'fas fa-volume-mute';
       } else {
