@@ -137,7 +137,7 @@ function greetUser() {
 async function getResponse(userQuery) {
     if (!userQuery) return;
     window.isBusy = true;
-    forceUnmute(); // บังคับเปิดเสียงทุกครั้งที่มีการถามใหม่
+    forceUnmute(); 
     
     window.speechSynthesis.cancel(); 
     fetch(`${GAS_URL}?query=${encodeURIComponent(userQuery.trim())}&action=logOnly`, { mode: 'no-cors' });
@@ -145,28 +145,49 @@ async function getResponse(userQuery) {
     restartIdleTimer(); 
     window.hasGreeted = true; 
     const query = userQuery.toLowerCase().trim();
-    let bestMatch = { answer: "", score: 0 };
+    
+    // เพิ่ม keyName เพื่อใช้ตรวจสอบตอน Debug
+    let bestMatch = { answer: "", score: 0, keyName: "" };
 
     Object.keys(window.localDatabase).forEach(sheetName => {
         if (["Lottie_State", "Config", "FAQ"].includes(sheetName)) return;
         window.localDatabase[sheetName].forEach((item) => {
             const rawKey = item[0] ? item[0].toString().toLowerCase().trim() : "";
             if (!rawKey) return;
-            let ans = window.currentLang === 'th' ? (item[1] || "ไม่มีข้อมูล") : (item[2] || "No data in English");
+            let ans = window.currentLang === 'th' ? (item[1] || "ไม่มีข้อมูล") : (item[2] || "No data");
             
-            rawKey.split(/\s+/).forEach(key => {
-                if (key.length <= 2) return; 
-                let score = query.includes(key) ? 0.95 : calculateSimilarity(query, key);
-                if (score > bestMatch.score) bestMatch = { answer: ans, score: score };
-            });
+            let currentScore = 0;
+
+            // 1. ถ้าตรงกันเป๊ะ (Perfect Match) ให้คะแนนสูงสุด
+            if (query === rawKey) {
+                currentScore = 1.0;
+            } 
+            // 2. ถ้าคำถามยาวกว่าและครอบคลุม Key ทั้งประโยค (ไม่แยกคำ)
+            else if (query.includes(rawKey)) {
+                currentScore = 0.9;
+            }
+            // 3. ใช้ Algorithm คำนวณความคล้าย (Similarity)
+            else {
+                currentScore = calculateSimilarity(query, rawKey);
+            }
+            
+            if (currentScore > bestMatch.score) {
+                bestMatch = { answer: ans, score: currentScore, keyName: rawKey };
+            }
         });
     });
 
-    if (bestMatch.score >= 0.45) {
+    // แสดงคะแนนใน Console เพื่อให้คุณตรวจสอบได้ว่าน้องหยิบจาก Key ไหนมา
+    console.log(`Query: ${query} | Best Match: ${bestMatch.keyName} | Score: ${bestMatch.score}`);
+
+    // ปรับเกณฑ์คะแนนให้เข้มงวดขึ้น (0.60) เพื่อป้องกันการดึงผิดแถว
+    if (bestMatch.score >= 0.60) {
         displayResponse(bestMatch.answer);
         speak(bestMatch.answer);
     } else {
-        const fallback = (window.currentLang === 'th') ? "ขออภัย น้องนำทางไม่มีข้อมูลเรื่องนี้ครับ กรุณาติดต่อเจ้าหน้าที่ที่เคาท์เตอร์ครับ" : "I'm sorry, I couldn't find any information on this topic. Please contact the officer at the counter.";
+        const fallback = (window.currentLang === 'th') 
+            ? "ขออภัย น้องนำทางไม่แน่ใจในคำถามนี้ครับ กรุณาติดต่อเจ้าหน้าที่ หรือลองระบุคำให้ชัดเจนขึ้นครับ" 
+            : "I'm sorry, I'm not sure about that. Please contact the officer or be more specific.";
         displayResponse(fallback);
         speak(fallback);
     }
