@@ -138,56 +138,53 @@ async function getResponse(userQuery) {
     if (!userQuery) return;
     window.isBusy = true;
     forceUnmute(); 
-    
     window.speechSynthesis.cancel(); 
+    
     fetch(`${GAS_URL}?query=${encodeURIComponent(userQuery.trim())}&action=logOnly`, { mode: 'no-cors' });
-
     restartIdleTimer(); 
     window.hasGreeted = true; 
-    const query = userQuery.toLowerCase().trim();
     
-    // เพิ่ม keyName เพื่อใช้ตรวจสอบตอน Debug
+    const query = userQuery.toLowerCase().trim();
     let bestMatch = { answer: "", score: 0, keyName: "" };
 
     Object.keys(window.localDatabase).forEach(sheetName => {
         if (["Lottie_State", "Config", "FAQ"].includes(sheetName)) return;
         window.localDatabase[sheetName].forEach((item) => {
-            const rawKey = item[0] ? item[0].toString().toLowerCase().trim() : "";
-            if (!rawKey) return;
+            const rawKeys = item[0] ? item[0].toString().toLowerCase().trim() : "";
+            if (!rawKeys) return;
+
+            // แยกคำที่คั่นด้วย , หรือ | ออกมาเป็นลิสต์ เพื่อเช็คทีละประโยค
+            const keyList = rawKeys.split(/[,|]/).map(k => k.trim());
+            
             let ans = window.currentLang === 'th' ? (item[1] || "ไม่มีข้อมูล") : (item[2] || "No data");
             
-            let currentScore = 0;
+            keyList.forEach(key => {
+                let currentScore = 0;
 
-            // 1. ถ้าตรงกันเป๊ะ (Perfect Match) ให้คะแนนสูงสุด
-            if (query === rawKey) {
-                currentScore = 1.0;
-            } 
-            // 2. ถ้าคำถามยาวกว่าและครอบคลุม Key ทั้งประโยค (ไม่แยกคำ)
-            else if (query.includes(rawKey)) {
-                currentScore = 0.9;
-            }
-            // 3. ใช้ Algorithm คำนวณความคล้าย (Similarity)
-            else {
-                currentScore = calculateSimilarity(query, rawKey);
-            }
-            
-            if (currentScore > bestMatch.score) {
-                bestMatch = { answer: ans, score: currentScore, keyName: rawKey };
-            }
+                if (query === key) {
+                    currentScore = 1.0; // ตรงเป๊ะกับคำใดคำหนึ่งในลิสต์
+                } else if (query.includes(key) && key.length > 4) {
+                    currentScore = 0.85; // มีประโยคสำคัญอยู่ในคำถาม
+                } else {
+                    currentScore = calculateSimilarity(query, key);
+                }
+
+                if (currentScore > bestMatch.score) {
+                    bestMatch = { answer: ans, score: currentScore, keyName: key };
+                }
+            });
         });
     });
 
-    // แสดงคะแนนใน Console เพื่อให้คุณตรวจสอบได้ว่าน้องหยิบจาก Key ไหนมา
-    console.log(`Query: ${query} | Best Match: ${bestMatch.keyName} | Score: ${bestMatch.score}`);
+    console.log(`[Result] Query: ${query} | Best Match: ${bestMatch.keyName} | Score: ${bestMatch.score}`);
 
-    // ปรับเกณฑ์คะแนนให้เข้มงวดขึ้น (0.60) เพื่อป้องกันการดึงผิดแถว
     if (bestMatch.score >= 0.60) {
-        displayResponse(bestMatch.answer);
+        displayResponse(bestMatch.answer, true); // เพิ่มปุ่ม Feedback
         speak(bestMatch.answer);
     } else {
         const fallback = (window.currentLang === 'th') 
-            ? "ขออภัย น้องนำทางไม่แน่ใจในคำถามนี้ครับ กรุณาติดต่อเจ้าหน้าที่ หรือลองระบุคำให้ชัดเจนขึ้นครับ" 
-            : "I'm sorry, I'm not sure about that. Please contact the officer or be more specific.";
+            ? "ขออภัย น้องนำทางไม่พบข้อมูลที่ตรงกันครับ" 
+            : "I'm sorry, I couldn't find a matching answer.";
         displayResponse(fallback);
         speak(fallback);
     }
