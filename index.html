@@ -15,9 +15,45 @@
     :root { --primary: #6c5ce7; --bg: #f9f9fb; --accent: #ff7675; }
     body { font-family: 'Sarabun', sans-serif; background: var(--bg); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
     
-    ..avatar-container { width: 180px; height: 180px; margin-bottom: 15px; border-radius: 50%; background: white; box-shadow: 0 5px 15px rgba(0,0,0,0.05); overflow: hidden; }
+    /* --- เพิ่มส่วน CSS สำหรับปุ่มควบคุมใหม่ --- */
+    .top-controls { 
+      position: absolute; top: 20px; width: 90%; max-width: 500px; 
+      display: flex; justify-content: space-between; align-items: center; z-index: 100; 
+    }
+    .lang-switcher { display: flex; gap: 10px; }
+    .lang-btn { 
+      width: 42px; height: 42px; border-radius: 50%; border: 3px solid white; 
+      cursor: pointer; transition: 0.3s; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.1); 
+    }
+    .lang-btn img { width: 100%; height: 100%; object-fit: cover; }
+    .lang-btn.active { border-color: var(--primary); transform: scale(1.1); }
     
-    .display-box { background: white; border-radius: 20px; padding: 25px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); width: 90%; max-width: 500px; text-align: left; min-height: 80px; font-size: 18px; margin-bottom: 20px; color: #2d3436; overflow-y: auto; max-height: 200px; border-left: 6px solid var(--primary); }
+    .btn-mute { 
+      width: 42px; height: 42px; border-radius: 50%; border: none; background: white; 
+      color: var(--primary); cursor: pointer; font-size: 18px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); 
+      display: flex; align-items: center; justify-content: center; transition: 0.3s; 
+    }
+    .btn-mute.is-muted { background: var(--accent); color: white; }
+    /* ---------------------------------- */
+
+    .avatar-container { width: 180px; height: 180px; margin-bottom: 15px; border-radius: 50%; background: white; box-shadow: 0 5px 15px rgba(0,0,0,0.05); overflow: hidden; margin-top: 50px; /* ปรับ margin เพื่อไม่ให้ทับกับปุ่มด้านบน */ }
+    
+    .display-box { 
+      background: white; 
+      border-radius: 20px; 
+      padding: 25px; 
+      box-shadow: 0 10px 20px rgba(0,0,0,0.05); 
+      width: 90%; 
+      max-width: 500px; 
+      text-align: left; 
+      min-height: 150px; 
+      height: auto;      
+      font-size: 18px; 
+      margin-bottom: 20px; 
+      color: #2d3436; 
+      border-left: 6px solid var(--primary);
+      line-height: 1.6;
+    }
     
     .faq-title { 
       width: 90%; 
@@ -77,15 +113,23 @@
 </head>
 <body>
 
-  <lottie-player 
-        id="lottie-canvas" 
-        src="https://lottie.host/568e8594-a319-4491-bf10-a0f5c012fc76/6S3urqybG5.json" 
-        background="transparent" 
-        speed="1" 
-        loop 
-        autoplay>
-    </lottie-player>
-</div>
+  <div class="top-controls">
+    <button id="muteBtn" class="btn-mute" onclick="toggleMute()">
+      <i id="muteIcon" class="fas fa-volume-up"></i>
+    </button>
+    <div class="lang-switcher">
+        <div id="btn-th" class="lang-btn active" onclick="setLanguage('th')">
+          <img src="https://cdn-icons-png.flaticon.com/512/197/197452.png" alt="TH">
+        </div>
+        <div id="btn-en" class="lang-btn" onclick="setLanguage('en')">
+          <img src="https://cdn-icons-png.flaticon.com/512/197/197374.png" alt="EN">
+        </div>
+    </div>
+  </div>
+
+  <div class="avatar-container">
+    <lottie-player id="lottie-canvas" src="https://assets10.lottiefiles.com/packages/lf20_mbye9mxo.json" background="transparent" speed="1" loop autoplay></lottie-player>
+  </div>
 
   <div class="display-box" id="response-text">(กำลังเตรียมระบบ AI...)</div>
 
@@ -108,6 +152,7 @@
   <script src="script.js?v=1.8"></script>
 
     <script>
+    // --- โค้ดส่วน Logic เดิมคงไว้ทั้งหมด ---
     let recognition, isListening = false;
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -121,7 +166,6 @@
         isListening = true;
         document.getElementById('micBtn').classList.add('recording');
         document.getElementById('statusText').innerText = "กำลังฟัง... พูดให้จบประโยคนะคะ";
-        // ปิดระบบตรวจจับคนชั่วคราวขณะฟัง เพื่อไม่ให้เสียงทักทายแทรก
         if (typeof isDetecting !== 'undefined') isDetecting = false; 
       };
 
@@ -131,18 +175,15 @@
         setTimeout(() => { processQuery(text); }, 800); 
       };
 
-      // แก้ไข: ถ้าหยุดฟัง (ไม่ว่าพูดจบหรือเงียบไปเอง) ให้เช็คสถานะเพื่อกลับมา idle
       recognition.onend = () => { 
         stopListening(); 
         setTimeout(() => {
-          // ถ้าไม่ได้กำลังค้นหาคำตอบ (isBusy เป็น false) ให้คืนร่างเป็น idle
           if (typeof isBusy !== 'undefined' && !isBusy) {
             if (typeof updateLottie === "function") { updateLottie('idle'); }
           }
         }, 150);
       };
 
-      // แก้ไข: ถ้าเกิด Error เช่น ไมค์ไม่ทำงาน หรือเงียบจนหมดเวลา
       recognition.onerror = (event) => {
         console.warn("Speech recognition error:", event.error);
         stopListening();
@@ -175,8 +216,11 @@
       } else { 
         try { 
           window.speechSynthesis.cancel(); 
-          // แก้ไข: กดปุ่มปุ๊บ เปลี่ยนร่างเป็น thinking ทันที
           if (typeof updateLottie === "function") { updateLottie('thinking'); }
+          // อัปเดตภาษาของไมค์ตามที่เลือกไว้ในปัจจุบันก่อนเริ่มฟัง
+          if (typeof currentLang !== 'undefined') {
+             recognition.lang = currentLang === 'th' ? 'th-TH' : 'en-US';
+          }
           recognition.start(); 
         } catch(e) { 
           console.error("Mic error:", e); 
@@ -190,6 +234,10 @@
       document.getElementById('micBtn').classList.remove('recording');
       document.getElementById('statusText').innerText = "แตะไมค์เพื่อเริ่มพูด";
     }
+
+    // ฟังก์ชัน Placeholder สำหรับเชื่อมโยงกับ script.js (ถ้ายังไม่ได้รัน init)
+    function setLanguage(lang) { if(window.changeLanguage) window.changeLanguage(lang); }
+    function toggleMute() { if(window.toggleMuteAudio) window.toggleMuteAudio(); }
   </script>
 </body>
 </html>
