@@ -21,7 +21,31 @@ let lastSeenTime = 0;
 let lastDetectionTime = 0; // สำหรับระบบ Throttling
 const DETECTION_INTERVAL = 400; // ตรวจจับทุก 0.4 วินาที (ลดภาระเครื่อง)
 
-// 1. ฟังก์ชันช่วยรีเซ็ตสถานะเสียง (เพื่อให้ปุ่มใน HTML เปลี่ยนตาม)
+// --- ส่วนที่แก้ไข/เพิ่มเติม: ฟังก์ชันเปลี่ยนภาษาแบบล้างระบบ ---
+window.switchLanguage = function(lang) {
+    // 1. หยุดเสียงที่กำลังพูดทันทีและล้างคิว
+    window.speechSynthesis.cancel();
+    
+    // 2. อัปเดตตัวแปรภาษา
+    window.currentLang = lang;
+    
+    // 3. ปลดล็อคสถานะเพื่อให้พร้อมรับคำสั่งใหม่ทันที
+    window.isBusy = false;
+    
+    // 4. รีเซ็ตหน้าจอและปุ่มให้เป็นภาษาใหม่
+    const welcomeMsg = (lang === 'th') 
+        ? "เปลี่ยนเป็นภาษาไทยแล้วครับ มีอะไรให้ช่วยไหม?" 
+        : "Switched to English. How can I help you?";
+    displayResponse(welcomeMsg);
+    renderFAQButtons(); 
+    
+    // 5. รีเซ็ตสถานะตัวละคร
+    updateLottie('idle');
+    restartIdleTimer();
+    console.log("System Cleared & Language Switched to:", lang);
+};
+
+// 1. ฟังก์ชันช่วยรีเซ็ตสถานะเสียง
 function forceUnmute() {
     window.isMuted = false;
     const muteBtn = document.getElementById('muteBtn');
@@ -53,8 +77,7 @@ function resetToHome() {
         return;
     }
 
-    forceUnmute(); // บังคับเปิดเสียงเมื่อกลับหน้าแรก
-    
+    forceUnmute(); 
     window.speechSynthesis.cancel(); 
     const welcomeMsg = window.currentLang === 'th' ? "กดปุ่มไมค์เพื่อสอบถามข้อมูลได้เลยครับ" : "Please tap the microphone to ask for information.";
     displayResponse(welcomeMsg);
@@ -69,7 +92,7 @@ function restartIdleTimer() {
     idleTimer = setTimeout(resetToHome, IDLE_TIME_LIMIT);
 }
 
-// 4. ระบบดวงตา AI (COCO-SSD) พร้อมระบบ Throttling ป้องกันเครื่องค้าง
+// 4. ระบบดวงตา AI
 async function initCamera() {
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -89,7 +112,6 @@ async function detectPerson() {
     }
 
     const now = Date.now();
-    // ถ้ายังไม่ถึงรอบการตรวจจับ (400ms) ให้ข้ามเฟรมนี้ไป
     if (now - lastDetectionTime < DETECTION_INTERVAL) {
         requestAnimationFrame(detectPerson);
         return;
@@ -116,7 +138,7 @@ async function detectPerson() {
 function greetUser() {
     if (window.hasGreeted || window.isBusy) return; 
     window.isBusy = true; 
-    forceUnmute(); // เปิดเสียงเพื่อทักทาย
+    forceUnmute(); 
 
     const hour = new Date().getHours();
     let thTime = hour < 12 ? "สวัสดีตอนเช้าครับ" : (hour < 18 ? "สวัสดีตอนบ่ายครับ" : "สวัสดีครับ");
@@ -153,21 +175,14 @@ async function getResponse(userQuery) {
             const rawKeys = item[0] ? item[0].toString().toLowerCase().trim() : "";
             if (!rawKeys) return;
 
-            // แยกคำที่คั่นด้วย , หรือ | ออกมาเป็นลิสต์ เพื่อเช็คทีละประโยค
             const keyList = rawKeys.split(/[,|]/).map(k => k.trim());
-            
             let ans = window.currentLang === 'th' ? (item[1] || "ไม่มีข้อมูล") : (item[2] || "No data");
             
             keyList.forEach(key => {
                 let currentScore = 0;
-
-                if (query === key) {
-                    currentScore = 1.0; // ตรงเป๊ะกับคำใดคำหนึ่งในลิสต์
-                } else if (query.includes(key) && key.length > 4) {
-                    currentScore = 0.85; // มีประโยคสำคัญอยู่ในคำถาม
-                } else {
-                    currentScore = calculateSimilarity(query, key);
-                }
+                if (query === key) currentScore = 1.0;
+                else if (query.includes(key) && key.length > 4) currentScore = 0.85;
+                else currentScore = calculateSimilarity(query, key);
 
                 if (currentScore > bestMatch.score) {
                     bestMatch = { answer: ans, score: currentScore, keyName: key };
@@ -176,10 +191,8 @@ async function getResponse(userQuery) {
         });
     });
 
-    console.log(`[Result] Query: ${query} | Best Match: ${bestMatch.keyName} | Score: ${bestMatch.score}`);
-
     if (bestMatch.score >= 0.60) {
-        displayResponse(bestMatch.answer, true); // เพิ่มปุ่ม Feedback
+        displayResponse(bestMatch.answer);
         speak(bestMatch.answer);
     } else {
         const fallback = (window.currentLang === 'th') 
@@ -190,6 +203,7 @@ async function getResponse(userQuery) {
     }
 }
 
+// --- ส่วนที่แก้ไข: ปรับปรุงฟังก์ชัน speak ให้เคลียร์ State เสมอ ---
 function speak(text) {
     if (!text) return;
     window.speechSynthesis.cancel(); 
@@ -197,13 +211,27 @@ function speak(text) {
     msg.lang = (window.currentLang === 'th') ? 'th-TH' : 'en-US';
     msg.volume = window.isMuted ? 0 : 1;
 
+    const voices = window.speechSynthesis.getVoices();
     if (window.currentLang === 'th') {
-        const voices = window.speechSynthesis.getVoices();
         msg.voice = voices.find(v => v.name.includes('Achara')) || voices.find(v => v.name.includes('Google ภาษาไทย'));
     }
 
-    msg.onstart = () => updateLottie('talking');
-    msg.onend = () => { updateLottie('idle'); window.isBusy = false; restartIdleTimer(); };
+    msg.onstart = () => {
+        window.isBusy = true;
+        updateLottie('talking');
+    };
+    
+    msg.onend = () => { 
+        updateLottie('idle'); 
+        window.isBusy = false; 
+        restartIdleTimer(); 
+    };
+
+    msg.onerror = () => {
+        updateLottie('idle');
+        window.isBusy = false;
+    };
+
     window.speechSynthesis.speak(msg);
 }
 
