@@ -222,16 +222,33 @@ function speak(text) {
 function renderFAQButtons() {
     const container = document.getElementById('faq-container');
     if (!container || !localDatabase["FAQ"]) return;
+    
+    // 1. ล้างปุ่มเดิมออกให้หมดก่อน
     container.innerHTML = "";
 
+    // 2. วนลูปตามจำนวนแถวที่มีใน Sheets (ไม่จำกัดจำนวนปุ่มในอนาคต)
     localDatabase["FAQ"].slice(1).forEach((row) => {
-        const btnText = (currentLang === 'th') ? row[0] : row[1];
-        if (btnText) {
+        // คอลัมน์ A (index 0) = ไทย | คอลัมน์ B (index 1) = อังกฤษ
+        const qThai = row[0] ? row[0].toString().trim() : "";
+        const qEng  = row[1] ? row[1].toString().trim() : "";
+
+        // 3. ดึงค่าจาก "คอลัมน์เดียว" ที่ตรงกับภาษาที่เลือกเท่านั้น
+        // ไม่มีการใช้ || row[0] เพื่อป้องกันภาษาไทยมาปนในโหมด EN
+        let btnText = (currentLang === 'th') ? qThai : qEng;
+        
+        // 4. เงื่อนไขสำคัญ: สร้างปุ่มเฉพาะเมื่อคอลัมน์นั้นมีข้อมูลเท่านั้น
+        if (btnText !== "") {
             const btn = document.createElement('button');
             btn.className = 'faq-btn';
             btn.innerText = btnText;
-            // ใช้ค่าดั้งเดิม (Col A/B) เป็นคำถาม
-            btn.onclick = () => getResponse(btnText);
+            
+            // เมื่อคลิก: ส่งไปหาคำตอบ (3 แถว) และบันทึก Log ลง Col C ทันที
+            btn.onclick = () => {
+                if (typeof getResponse === "function") {
+                    getResponse(btnText);
+                }
+            };
+            
             container.appendChild(btn);
         }
     });
