@@ -129,106 +129,94 @@
 
   <script>
     let recognition, isListening = false;
-    let isMuted = false; // ตัวแปรเก็บสถานะการปิดเสียง
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-    // ฟังก์ชันเปิด-ปิดเสียง
+    // ฟังก์ชันเปิด-ปิดเสียง (แก้ให้เชื่อมกับ script.js)
     function toggleMute() {
-      isMuted = !isMuted;
+      window.isMuted = !window.isMuted; // เปลี่ยนค่าใน Global JS
       const muteBtn = document.getElementById('muteBtn');
       const muteIcon = document.getElementById('muteIcon');
       
-      if (isMuted) {
-        window.speechSynthesis.cancel(); // หยุดเสียงที่กำลังพูดอยู่ทันที
+      if (window.isMuted) {
+        window.speechSynthesis.cancel();
         muteBtn.classList.add('muted');
         muteIcon.className = 'fas fa-volume-mute';
       } else {
         muteBtn.classList.remove('muted');
         muteIcon.className = 'fas fa-volume-up';
       }
-      
-      // ส่งสถานะไปยัง script.js หากมีการประกาศตัวแปรไว้
-      if (typeof isMutedGlobal !== 'undefined') isMutedGlobal = isMuted;
     }
 
-  function changeLang(lang) {
-  // เปลี่ยนค่าตัวแปร Global ที่ใช้ร่วมกับ script.js
-  currentLang = lang; 
-  
-  // อัปเดต UI ของปุ่ม
-  document.getElementById('btn-th').classList.toggle('active', lang === 'th');
-  document.getElementById('btn-en').classList.toggle('active', lang === 'en');
-  
-  const isTh = (lang === 'th');
-  const userInput = document.getElementById('userInput');
-  userInput.placeholder = isTh ? "พิมพ์คำถามที่นี่..." : "Type your question here...";
-  userInput.value = ""; 
+    // ฟังก์ชันสลับภาษา (แก้ให้เชื่อมกับ script.js)
+    function changeLang(lang) {
+      window.currentLang = lang; // เปลี่ยนค่าภาษาใน Global JS
+      
+      document.getElementById('btn-th').classList.toggle('active', lang === 'th');
+      document.getElementById('btn-en').classList.toggle('active', lang === 'en');
+      
+      const isTh = (lang === 'th');
+      document.getElementById('userInput').placeholder = isTh ? "พิมพ์คำถามที่นี่..." : "Type your question here...";
+      document.getElementById('statusText').innerText = isTh ? "แตะไมค์เพื่อเริ่มพูด" : "Tap mic to speak";
+      
+      const faqTitle = document.getElementById('faq-title-text');
+      if (faqTitle) {
+          faqTitle.innerHTML = isTh ? '<i class="fas fa-star"></i> คำถามที่พบบ่อย:' : '<i class="fas fa-star"></i> Frequently Asked Questions:';
+      }
 
-  document.getElementById('statusText').innerText = isTh ? "แตะไมค์เพื่อเริ่มพูด" : "Tap mic to speak";
-  
-  const faqTitle = document.getElementById('faq-title-text');
-  if (faqTitle) {
-      faqTitle.innerHTML = isTh ? '<i class="fas fa-star"></i> คำถามที่พบบ่อย:' : '<i class="fas fa-star"></i> Frequently Asked Questions:';
-  }
+      // เปลี่ยนภาษาไมค์
+      if (recognition) recognition.lang = isTh ? 'th-TH' : 'en-US';
 
-  // อัปเดตภาษาของตัวจำเสียง (Speech Recognition)
-  if (recognition) {
-    recognition.lang = isTh ? 'th-TH' : 'en-US';
-  }
-
-  // สั่งให้วาดปุ่ม FAQ ใหม่ตามภาษาที่เลือก
-  if (typeof renderFAQButtons === "function") {
-    renderFAQButtons();
-  }
-
-  // ทักทายใหม่เมื่อเปลี่ยนภาษา (ถ้าไม่มีคนยืนอยู่)
-  if (!isBusy && typeof greetUser === "function") {
-    hasGreeted = false; // รีเซ็ตเพื่อให้ทักใหม่ในภาษาใหม่
-    greetUser();
-  }
-}
-
-    function handleManualInput() {
-      const input = document.getElementById('userInput');
-      const text = input.value.trim();
-      if (text) {
-        processQuery(text);
-        input.value = '';
+      // วาดปุ่มใหม่ และทักทายใหม่
+      if (typeof renderFAQButtons === "function") renderFAQButtons();
+      
+      if (!window.isBusy) {
+        window.hasGreeted = false; // ยอมให้ AI ทักทายใหม่ในภาษาที่เลือก
+        if (typeof greetUser === "function") greetUser();
       }
     }
 
+    // --- ส่วนของ Speech Recognition (คงเดิมแต่เปลี่ยนตัวแปรอ้างอิง) ---
+    if (SpeechRecognition) {
+      recognition = new SpeechRecognition();
+      recognition.lang = 'th-TH';
+      recognition.onstart = () => {
+        isListening = true;
+        document.getElementById('micBtn').classList.add('recording');
+        if (typeof isDetecting !== 'undefined') isDetecting = false; 
+      };
+      recognition.onresult = (event) => {
+        const text = event.results[0][0].transcript;
+        processQuery(text);
+      };
+      recognition.onend = () => { stopListening(); };
+    }
+
+    function handleManualInput() {
+      const input = document.getElementById('userInput');
+      if (input.value.trim()) { processQuery(input.value.trim()); input.value = ''; }
+    }
     function handleKeyPress(e) { if (e.key === 'Enter') handleManualInput(); }
 
     async function processQuery(query) {
       const output = document.getElementById('response-text');
-      const isTh = (typeof currentLang !== 'undefined' ? currentLang === 'th' : true);
-      output.innerText = isTh ? "กำลังค้นหาคำตอบ..." : "Searching...";
-      if (typeof getResponse === "function") {
-        await getResponse(query); 
-      }
+      output.innerText = (window.currentLang === 'th') ? "กำลังค้นหา..." : "Searching...";
+      if (typeof getResponse === "function") await getResponse(query);
     }
 
     function toggleListening() {
-      if (isListening) {
-        recognition.stop();
-      } else { 
-        try { 
-          window.speechSynthesis.cancel(); 
-          if (typeof updateLottie === "function") { updateLottie('thinking'); }
-          recognition.start(); 
-        } catch(e) { 
-          console.error("Mic error:", e); 
-          if (typeof updateLottie === "function") { updateLottie('idle'); }
-        } 
+      if (isListening) { recognition.stop(); } 
+      else { 
+        window.speechSynthesis.cancel();
+        updateLottie('thinking');
+        recognition.start(); 
       }
     }
 
     function stopListening() {
       isListening = false;
       document.getElementById('micBtn').classList.remove('recording');
-      const isTh = (typeof currentLang !== 'undefined' ? currentLang === 'th' : true);
-      document.getElementById('statusText').innerText = isTh ? "แตะไมค์เพื่อเริ่มพูด" : "Tap mic to speak";
+      document.getElementById('statusText').innerText = (window.currentLang === 'th') ? "แตะไมค์เพื่อเริ่มพูด" : "Tap mic to speak";
     }
-  </script>
+</script>
 </body>
 </html>
