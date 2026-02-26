@@ -8,7 +8,7 @@ const GAS_URL = "https://script.google.com/macros/s/AKfycbz1bkIsQ588u-rpjY-8nMly
 
 // --- ตัวแปรระบบ ---
 let currentLang = 'th'; 
-let isMuted = false; // เชื่อมกับสถานะใน HTML
+let isMuted = false; // เชื่อมกับสถานะใน HTML (ผ่านฟังก์ชัน toggleMute)
 let isBusy = false; 
 let idleTimer; 
 const IDLE_TIME_LIMIT = 30000; 
@@ -23,6 +23,7 @@ let lastGreeting = "";
 
 // 1. เริ่มต้นระบบ
 async function initDatabase() {
+    console.log("DEBUG: [Init] เริ่มโหลดฐานข้อมูล...");
     try {
         const res = await fetch(GAS_URL, { redirect: 'follow' });
         const json = await res.json();
@@ -65,7 +66,7 @@ function restartIdleTimer() {
     idleTimer = setTimeout(resetToHome, IDLE_TIME_LIMIT);
 }
 
-// 3. ระบบตรวจจับคน (COCO-SSD)
+// 3. ระบบดวงตา AI (COCO-SSD)
 async function initCamera() {
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -85,7 +86,7 @@ async function detectPerson() {
     const person = predictions.find(p => {
         const [x, y, width] = p.bbox;
         const centerX = x + (width / 2);
-        // ตรวจจับเฉพาะคนที่อยู่กลางเฟรมและมีขนาดใหญ่พอ (ยืนใกล้)
+        // ตรวจจับเฉพาะคนที่อยู่กลางเฟรมและยืนใกล้ (กว้าง > 160px)
         return p.class === "person" && p.score > 0.65 && width > 160 && (centerX > 64 && centerX < 256);
     });
 
@@ -93,13 +94,13 @@ async function detectPerson() {
         restartIdleTimer();
         if (personInFrameTime === null) personInFrameTime = Date.now();
         
-        // ยืนแช่ 3-5 วินาทีค่อยทัก (ลดจาก 5 เหลือ 3 เพื่อความกระฉับกระเฉง)
+        // ยืนแช่ 3 วินาทีค่อยทัก
         if (Date.now() - personInFrameTime >= 3000 && !hasGreeted) {
             greetUser();
         }
         lastSeenTime = Date.now(); 
     } else {
-        // ถ้าคนเดินออกไปเกิน 10 วินาที ให้รีเซ็ตสถานะการทักทาย
+        // ถ้าคนเดินออกไปเกิน 10 วินาที ให้รีเซ็ตสถานะการทักทายเพื่อรอทักคนใหม่
         if (personInFrameTime !== null && (Date.now() - lastSeenTime > 10000)) { 
             personInFrameTime = null;
             hasGreeted = false;
@@ -108,7 +109,7 @@ async function detectPerson() {
     requestAnimationFrame(detectPerson);
 }
 
-// 4. ทักทายตามช่วงเวลา (ดึงจากโค้ดเก่าที่คุณชอบ)
+// 4. ทักทายตามช่วงเวลา
 function greetUser() {
     if (hasGreeted || isBusy) return; 
     isBusy = true; 
@@ -138,9 +139,9 @@ function greetUser() {
 async function getResponse(userQuery) {
     if (!userQuery) return;
     isBusy = true;
-    window.speechSynthesis.cancel(); // ตัดเสียงเก่าทิ้งทันทีป้องกันค้าง
+    window.speechSynthesis.cancel(); 
 
-    // บันทึก Log ลง Google Sheets
+    // บันทึก Log ลง Google Sheets (Column C)
     fetch(`${GAS_URL}?query=${encodeURIComponent(userQuery.trim())}&action=logOnly`, { mode: 'no-cors' })
         .catch(e => console.warn("Log failed", e));
 
@@ -187,18 +188,19 @@ async function getResponse(userQuery) {
 // 6. ระบบเสียง (Anti-Freeze & Mute Support)
 function speak(text) {
     if (!text) return;
-    window.speechSynthesis.cancel(); // ล้าง Queue ทุกครั้งป้องกันการ Freeze
+    window.speechSynthesis.cancel(); 
 
     const msg = new SpeechSynthesisUtterance(text.replace(/[*#-]/g, ""));
     msg.lang = (currentLang === 'th') ? 'th-TH' : 'en-US';
     
-    // ตั้งค่า Volume ตามสถานะ Mute (เงียบแต่ปากยังขยับ)
+    // ตั้งค่า Volume: ถ้า Mute อยู่จะเป็น 0 (เล่นแบบเงียบ) ถ้าไม่ Mute จะเป็น 1
     msg.volume = isMuted ? 0 : 1;
 
-    // เลือกเสียง
-    const voices = window.speechSynthesis.getVoices();
+    // เลือกเสียงภาษาไทยถ้าเป็นโหมด TH
     if (currentLang === 'th') {
-        msg.voice = voices.find(v => v.name.includes('Achara')) || voices.find(v => v.name.includes('Google ภาษาไทย'));
+        const voices = window.speechSynthesis.getVoices();
+        const thVoice = voices.find(v => v.name.includes('Achara')) || voices.find(v => v.name.includes('Google ภาษาไทย'));
+        if (thVoice) msg.voice = thVoice;
     }
 
     msg.onstart = () => updateLottie('talking');
@@ -208,9 +210,7 @@ function speak(text) {
         restartIdleTimer(); 
     };
     
-    // Error Handling เพื่อป้องกันอาการค้าง
-    msg.onerror = (e) => {
-        console.error("Speech Error:", e);
+    msg.onerror = () => {
         updateLottie('idle');
         isBusy = false;
     };
@@ -218,37 +218,30 @@ function speak(text) {
     window.speechSynthesis.speak(msg);
 }
 
-// 7. UI & FAQ
+// 7. UI & FAQ (Bilingual Buttons)
 function renderFAQButtons() {
     const container = document.getElementById('faq-container');
-    if (!container || !localDatabase["FAQ"]) return;
+    if (!container || !localDatabase || !localDatabase["FAQ"]) return;
     
-    // 1. ล้างปุ่มเดิมออกให้หมดก่อน
     container.innerHTML = "";
 
-    // 2. วนลูปตามจำนวนแถวที่มีใน Sheets (ไม่จำกัดจำนวนปุ่มในอนาคต)
     localDatabase["FAQ"].slice(1).forEach((row) => {
-        // คอลัมน์ A (index 0) = ไทย | คอลัมน์ B (index 1) = อังกฤษ
+        // Col A = TH | Col B = EN
         const qThai = row[0] ? row[0].toString().trim() : "";
         const qEng  = row[1] ? row[1].toString().trim() : "";
 
-        // 3. ดึงค่าจาก "คอลัมน์เดียว" ที่ตรงกับภาษาที่เลือกเท่านั้น
-        // ไม่มีการใช้ || row[0] เพื่อป้องกันภาษาไทยมาปนในโหมด EN
         let btnText = (currentLang === 'th') ? qThai : qEng;
         
-        // 4. เงื่อนไขสำคัญ: สร้างปุ่มเฉพาะเมื่อคอลัมน์นั้นมีข้อมูลเท่านั้น
         if (btnText !== "") {
             const btn = document.createElement('button');
             btn.className = 'faq-btn';
             btn.innerText = btnText;
             
-            // เมื่อคลิก: ส่งไปหาคำตอบ (3 แถว) และบันทึก Log ลง Col C ทันที
             btn.onclick = () => {
                 if (typeof getResponse === "function") {
                     getResponse(btnText);
                 }
             };
-            
             container.appendChild(btn);
         }
     });
@@ -270,13 +263,14 @@ function displayResponse(text) {
     if (box) box.innerText = text;
 }
 
-// (Similarity & EditDistance คงเดิม)
+// 8. การคำนวณความคล้ายคลึง (Fuzzy Search)
 function calculateSimilarity(s1, s2) {
     let longer = s1.length < s2.length ? s2 : s1;
     let shorter = s1.length < s2.length ? s1 : s2;
     if (longer.length === 0) return 1.0;
     return (longer.length - editDistance(longer, shorter)) / longer.length;
 }
+
 function editDistance(s1, s2) {
     let costs = [];
     for (let i = 0; i <= s1.length; i++) {
