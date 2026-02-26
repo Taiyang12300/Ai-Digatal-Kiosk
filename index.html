@@ -30,12 +30,12 @@
       gap: 10px;
     }
 
-    .btn-lang, .btn-mute {
+      .btn-lang, .btn-mute {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 5px;
-      padding: 8px 12px;
+      gap: 8px; /* เพิ่มระยะห่างระหว่างธงกับข้อความ */
+      padding: 8px 15px; /* เพิ่ม padding ซ้าย-ขวาให้ดูเต็มขึ้น */
       border-radius: 20px;
       border: 2px solid #e0e0e0;
       background: white;
@@ -44,13 +44,22 @@
       font-weight: 500;
       cursor: pointer;
       transition: all 0.2s;
-      min-width: 45px;
+      min-width: 85px; /* เพิ่มความกว้างขั้นต่ำเพื่อให้ปุ่มดูสมดุลเมื่อมีรูปภาพ */
+    }
+
+    /* สไตล์สำหรับรูปภาพธงภายในปุ่ม */
+    .btn-lang img {
+      width: 22px; /* ขนาดธงที่พอดีกับสายตา */
+      height: auto;
+      border-radius: 2px; /* ลบมุมธงเล็กน้อยให้ซอฟต์ลง */
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1); /* เพิ่มเงาบางๆ ให้รูปธงดูมีมิติ */
     }
 
     .btn-lang.active {
       border-color: var(--primary);
       background: #f0edff;
       color: var(--primary);
+      font-weight: bold; /* เน้นตัวหนาเมื่อถูกเลือก */
     }
 
     /* สไตล์ปุ่ม Mute เมื่อถูกปิดเสียง */
@@ -93,14 +102,13 @@
       <i id="muteIcon" class="fas fa-volume-up"></i>
     </button>
 
-    <div class="lang-container">
-      <button onclick="changeLang('th')" id="btn-th" class="btn-lang active">
-        <span>🇹🇭</span> TH
-      </button>
-      <button onclick="changeLang('en')" id="btn-en" class="btn-lang">
-        <span>🇺🇸</span> EN
-      </button>
-    </div>
+  <div class="lang-container">
+    <button onclick="changeLang('th')" id="btn-th" class="btn-lang active">
+    <img src="https://flagcdn.com/w40/th.png" alt="Thai Flag"> TH
+    </button>
+    <button onclick="changeLang('en')" id="btn-en" class="btn-lang">
+    <img src="https://flagcdn.com/w40/us.png" alt="English Flag"> EN
+    </button>
   </div>
 
   <div class="avatar-container">
