@@ -311,3 +311,15 @@ function editDistance(s1, s2) {
 }
 
 initDatabase();
+// บังคับหยุดเสียงทันทีเมื่อมีการรีเฟรชหน้าจอ (F5) หรือปิด Tab
+window.addEventListener('beforeunload', function() {
+    window.speechSynthesis.cancel();
+    if (speechSafetyTimeout) clearTimeout(speechSafetyTimeout);
+});
+
+// สำหรับกรณีตู้ Kiosk: บังคับหยุดเสียงหากมีการซ่อนหน้าต่าง (เช่น สลับแอป)
+document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'hidden') {
+        window.speechSynthesis.cancel();
+    }
+});
