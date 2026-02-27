@@ -67,7 +67,6 @@ function forceUnmute() {
  */
 function resetToHome() {
     const now = Date.now();
-    // เช็คว่าไม่มีการใช้งานทั้งกล้องและสัมผัส
     const noInteraction = (now - lastSeenTime > IDLE_TIME_LIMIT);
 
     if (window.isBusy || personInFrameTime !== null || !noInteraction) {
@@ -77,9 +76,14 @@ function resetToHome() {
 
     resetSystemState();
     forceUnmute(); 
+
+    // --- เพิ่ม 2 บรรทัดนี้ เพื่อล้างสถานะให้พร้อมทักทายคนใหม่ ---
+    window.hasGreeted = false;      // อนุญาตให้ระบบส่งเสียงทักทายได้อีกครั้ง
+    personInFrameTime = null;       // ล้างประวัติการเจอคน เพื่อเริ่มนับ 1.5 วินาทีใหม่
+    // --------------------------------------------------
+
     const welcomeMsg = window.currentLang === 'th' ? "กดปุ่มไมค์เพื่อสอบถามข้อมูลได้เลยครับ" : "Please tap the microphone to ask for information.";
     displayResponse(welcomeMsg);
-    window.hasGreeted = false; 
     restartIdleTimer();
 }
 
