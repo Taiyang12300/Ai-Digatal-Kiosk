@@ -115,32 +115,32 @@ async function detectPerson() {
     lastDetectionTime = now;
 
     const predictions = await cocoModel.detect(video);
-    // เพิ่มความเข้มงวด score เป็น 0.80 เพื่อกันเงาหลอก
     const person = predictions.find(p => p.class === "person" && p.score > 0.80 && p.bbox[2] > 130);
 
     if (person) {
-        restartIdleTimer(); // ต่อเวลา Reset ตลอดที่เจอคน
-        lastSeenTime = Date.now(); // อัปเดตเวลาที่เห็นล่าสุด
+        restartIdleTimer(); 
+        lastSeenTime = Date.now(); 
 
         if (personInFrameTime === null) {
             personInFrameTime = Date.now();
+            // เมื่อเจอคนใหม่ ต้องเซ็ต hasGreeted เป็น false เสมอเพื่อรอทักทาย
+            window.hasGreeted = false; 
         }
 
-        // เงื่อนไขการทักทายที่แม่นยำขึ้น:
-        // 1. ต้องไม่ยุ่งอยู่ (isBusy)
-        // 2. ต้องยังไม่ได้ทักทาย (hasGreeted)
-        // 3. ต้องยืนแช่หน้าตู้นานกว่า 1.5 วินาที
+        // เงื่อนไข: ทักทายเฉพาะเมื่อ (ไม่ยุ่ง) AND (ยังไม่ได้ทักทายคนนี้) AND (ยืนแช่เกิน 1.5 วิ)
         if (!window.isBusy && !window.hasGreeted) {
             if (Date.now() - personInFrameTime >= 1500) {
                 greetUser();
+                // window.hasGreeted = true; จะถูกเซ็ตภายใน greetUser()
             }
         }
     } else {
-        // ถ้าไม่เจอคนต่อเนื่องเกิน 5 วินาที ให้รีเซ็ตสถานะการทักทาย (เพื่อรองรับคนใหม่)
+        // ถ้าไม่เจอคนต่อเนื่องเกิน 5 วินาที ให้ถือว่าคนเดินจากไปแล้วจริงๆ
         if (personInFrameTime !== null && (Date.now() - lastSeenTime > 5000)) { 
-            console.log("Person left. Resetting greeting state.");
+            console.log("Person left. Clearing session.");
             personInFrameTime = null;
-            window.hasGreeted = false; // ยอมให้ทักทายได้อีกครั้งเมื่อมีคนใหม่เข้ามา
+            window.hasGreeted = false; 
+            window.isBusy = false; // ปลดล็อคสถานะยุ่งเมื่อคนไปแล้ว
         }
     }
     requestAnimationFrame(detectPerson);
