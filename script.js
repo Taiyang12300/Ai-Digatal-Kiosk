@@ -1,5 +1,6 @@
 /**
  * สมองกลน้องนำทาง - เวอร์ชั่นเสถียร (Kiosk Optimized)
+ * แก้ไขจุดขัดแย้ง: ระบบปลดล็อคอัตโนมัติและการเช็คสถานะการรีเซ็ต
  */
 
 // ใช้ window. เพื่อให้ HTML เรียกใช้และแก้ไขได้โดยตรง
@@ -12,7 +13,7 @@ window.hasGreeted = false;
 const GAS_URL = "https://script.google.com/macros/s/AKfycbz1bkIsQ588u-rpjY-8nMlya5_c0DsIabRvyPyCC_sPs5vyeJ_1wcOBaqKfg7cvlM3XJw/exec"; 
 
 let idleTimer; 
-const IDLE_TIME_LIMIT = 30000; 
+const IDLE_TIME_LIMIT = 20000; 
 let video = document.getElementById('video');
 let cocoModel = null; 
 let isDetecting = true; 
@@ -20,26 +21,20 @@ let personInFrameTime = null;
 let lastSeenTime = 0;
 let lastDetectionTime = 0; // สำหรับระบบ Throttling
 const DETECTION_INTERVAL = 400; // ตรวจจับทุก 0.4 วินาที (ลดภาระเครื่อง)
+let speechSafetyTimeout; // ตัวแปรสำหรับล้าง Safety Timeout
 
 // --- ส่วนที่แก้ไข/เพิ่มเติม: ฟังก์ชันเปลี่ยนภาษาแบบล้างระบบ ---
 window.switchLanguage = function(lang) {
-    // 1. หยุดเสียงที่กำลังพูดทันทีและล้างคิว
     window.speechSynthesis.cancel();
-    
-    // 2. อัปเดตตัวแปรภาษา
     window.currentLang = lang;
-    
-    // 3. ปลดล็อคสถานะเพื่อให้พร้อมรับคำสั่งใหม่ทันที
     window.isBusy = false;
     
-    // 4. รีเซ็ตหน้าจอและปุ่มให้เป็นภาษาใหม่
     const welcomeMsg = (lang === 'th') 
         ? "เปลี่ยนเป็นภาษาไทยแล้วครับ มีอะไรให้ช่วยไหม?" 
         : "Switched to English. How can I help you?";
     displayResponse(welcomeMsg);
     renderFAQButtons(); 
     
-    // 5. รีเซ็ตสถานะตัวละคร
     updateLottie('idle');
     restartIdleTimer();
     console.log("System Cleared & Language Switched to:", lang);
@@ -70,8 +65,9 @@ async function initDatabase() {
     } catch (e) { console.error("System Load Error:", e); }
 }
 
-// 3. ระบบ Reset หน้าจอ
+// 3. ระบบ Reset หน้าจอ (แก้ไข: เช็คสถานะการพูดของ Browser)
 function resetToHome() {
+    // ป้องกันการรีเซ็ตถ้า Browser กำลังส่งเสียง หรือ AI ยังเจอคน
     if (window.speechSynthesis.speaking || personInFrameTime !== null) {
         restartIdleTimer(); 
         return;
@@ -92,7 +88,7 @@ function restartIdleTimer() {
     idleTimer = setTimeout(resetToHome, IDLE_TIME_LIMIT);
 }
 
-// 4. ระบบดวงตา AI
+// 4. ระบบดวงตา AI (แก้ไข: แยกส่วนการ Restart Timer ออกจาก isBusy)
 async function initCamera() {
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -106,7 +102,7 @@ async function initCamera() {
 }
 
 async function detectPerson() {
-    if (!isDetecting || window.isBusy || !cocoModel) { 
+    if (!isDetecting || !cocoModel) { 
         requestAnimationFrame(detectPerson); 
         return; 
     }
@@ -122,7 +118,14 @@ async function detectPerson() {
     const person = predictions.find(p => p.class === "person" && p.score > 0.75 && p.bbox[2] > 130);
 
     if (person) {
-        restartIdleTimer();
+        restartIdleTimer(); // รีเซ็ตเวลาเสมอเมื่อเจอคน ป้องกันหน้าจอดับ
+        
+        // ถ้าเครื่องกำลังประมวลผลคำถามเดิมอยู่ ไม่ต้องทักทายใหม่
+        if (window.isBusy) {
+            requestAnimationFrame(detectPerson);
+            return;
+        }
+
         if (personInFrameTime === null) personInFrameTime = Date.now();
         if (Date.now() - personInFrameTime >= 1500 && !window.hasGreeted) greetUser();
         lastSeenTime = Date.now(); 
@@ -203,10 +206,19 @@ async function getResponse(userQuery) {
     }
 }
 
-// --- ส่วนที่แก้ไข: ปรับปรุงฟังก์ชัน speak ให้เคลียร์ State เสมอ ---
+// --- ส่วนที่แก้ไข: เพิ่มระบบ Safety Unlock ป้องกัน State ค้าง ---
 function speak(text) {
     if (!text) return;
     window.speechSynthesis.cancel(); 
+    clearTimeout(speechSafetyTimeout);
+
+    // ปลดล็อคอัตโนมัติเมื่อเวลาผ่านไป (อักษรละ 250ms + พื้นฐาน 5 วินาที)
+    const safetyTime = (text.length * 250) + 5000;
+    speechSafetyTimeout = setTimeout(() => {
+        window.isBusy = false;
+        updateLottie('idle');
+    }, safetyTime);
+
     const msg = new SpeechSynthesisUtterance(text.replace(/[*#-]/g, ""));
     msg.lang = (window.currentLang === 'th') ? 'th-TH' : 'en-US';
     msg.volume = window.isMuted ? 0 : 1;
@@ -222,12 +234,14 @@ function speak(text) {
     };
     
     msg.onend = () => { 
+        clearTimeout(speechSafetyTimeout);
         updateLottie('idle'); 
         window.isBusy = false; 
         restartIdleTimer(); 
     };
 
     msg.onerror = () => {
+        clearTimeout(speechSafetyTimeout);
         updateLottie('idle');
         window.isBusy = false;
     };
