@@ -235,7 +235,7 @@ async function getResponse(userQuery) {
  */
 function speak(text) {
     if (!text) return;
-    
+    forceUnmute();
     // Safety Unlock: คำนวณเวลาสูงสุดที่ควรพูดเสร็จ (อักษรละ 200ms + 5 วิ)
     const safetyTime = (text.length * 200) + 5000;
     
