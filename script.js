@@ -124,7 +124,7 @@ async function detectPerson() {
     if (person) {
         restartIdleTimer();
         if (personInFrameTime === null) personInFrameTime = Date.now();
-        if (Date.now() - personInFrameTime >= 3000 && !window.hasGreeted) greetUser();
+        if (Date.now() - personInFrameTime >= 1500 && !window.hasGreeted) greetUser();
         lastSeenTime = Date.now(); 
     } else {
         if (personInFrameTime !== null && (Date.now() - lastSeenTime > 10000)) { 
