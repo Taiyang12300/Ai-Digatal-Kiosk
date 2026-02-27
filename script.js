@@ -311,15 +311,20 @@ function editDistance(s1, s2) {
 }
 
 initDatabase();
-// บังคับหยุดเสียงทันทีเมื่อมีการรีเฟรชหน้าจอ (F5) หรือปิด Tab
-window.addEventListener('beforeunload', function() {
-    window.speechSynthesis.cancel();
-    if (speechSafetyTimeout) clearTimeout(speechSafetyTimeout);
-});
 
-// สำหรับกรณีตู้ Kiosk: บังคับหยุดเสียงหากมีการซ่อนหน้าต่าง (เช่น สลับแอป)
-document.addEventListener('visibilitychange', function() {
-    if (document.visibilityState === 'hidden') {
-        window.speechSynthesis.cancel();
-    }
+// ชุดคำสั่งหยุดเสียงเมื่อปิดหน้าจอหรือรีเฟรช
+const stopAllSpeech = () => {
+    window.speechSynthesis.cancel();
+    if (typeof speechSafetyTimeout !== 'undefined') clearTimeout(speechSafetyTimeout);
+};
+
+// 1. ดักจับการปิดหน้าต่างด้วยกากบาท หรือการเปลี่ยน URL
+window.addEventListener('pagehide', stopAllSpeech);
+
+// 2. ดักจับการรีเฟรช (F5) 
+window.addEventListener('beforeunload', stopAllSpeech);
+
+// 3. (แถม) ดักจับกรณีหน้าจอดับหรือสลับไปแอปอื่น (สำหรับตู้ Kiosk)
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') stopAllSpeech();
 });
