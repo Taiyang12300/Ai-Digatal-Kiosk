@@ -1,6 +1,6 @@
 /**
- * สมองกลน้องนำทาง - เวอร์ชั่น Ultra Stable (Kiosk Professional - Final)
- * ระบบจัดการ: ทักซ้ำ, ป้องกันค้าง, Safety Unlock, และระบบสัมผัสหน้าจอ
+ * สมองกลน้องนำทาง - เวอร์ชั่น Ultra Stable (Kiosk Professional)
+ * แก้ไข: ป้องกันอาการค้าง, รองรับการสัมผัส, และระบบ Safety Timeout
  */
 
 window.localDatabase = null;
@@ -13,7 +13,7 @@ const GAS_URL = "https://script.google.com/macros/s/AKfycbz1bkIsQ588u-rpjY-8nMly
 
 let idleTimer; 
 let speechSafetyTimeout; 
-const IDLE_TIME_LIMIT = 45000; // 45 วินาที สำหรับ Kiosk
+const IDLE_TIME_LIMIT = 45000; // ปรับเป็น 45 วินาทีเพื่อให้คนมีเวลาอ่าน
 let video = document.getElementById('video');
 let cocoModel = null; 
 let isDetecting = true; 
@@ -23,7 +23,7 @@ let lastDetectionTime = 0;
 const DETECTION_INTERVAL = 500; 
 
 /**
- * 1. ระบบจัดการสถานะและความปลอดภัย (State & Safety)
+ * 1. ระบบจัดการสถานะและความเสถียร (Centralized State Control)
  */
 
 function resetSystemState() {
@@ -33,13 +33,13 @@ function resetSystemState() {
     updateLottie('idle');
 }
 
-// อัปเดตเวลาใช้งานล่าสุด (ป้องกันเครื่อง Reset ขณะคนจิ้มหน้าจอ)
+// อัปเดตเวลาล่าสุดที่มีการใช้งาน (ทั้งจากกล้องและการสัมผัส)
 function updateInteractionTime() {
     lastSeenTime = Date.now();
     restartIdleTimer();
 }
 
-// ลงทะเบียนการตรวจจับการสัมผัส
+// ลงทะเบียนการตรวจจับการสัมผัสหน้าจอ
 document.addEventListener('mousedown', updateInteractionTime);
 document.addEventListener('touchstart', updateInteractionTime);
 
@@ -57,11 +57,9 @@ window.switchLanguage = function(lang) {
 function forceUnmute() {
     window.isMuted = false;
     const muteBtn = document.getElementById('muteBtn');
-    if (muteBtn) {
-        muteBtn.classList.remove('muted');
-        const muteIcon = document.getElementById('muteIcon');
-        if (muteIcon) muteIcon.className = 'fas fa-volume-up';
-    }
+    const muteIcon = document.getElementById('muteIcon');
+    if (muteBtn) muteBtn.classList.remove('muted');
+    if (muteIcon) muteIcon.className = 'fas fa-volume-up';
 }
 
 /**
@@ -69,7 +67,7 @@ function forceUnmute() {
  */
 function resetToHome() {
     const now = Date.now();
-    // เช็คทั้งกล้องและการสัมผัสหน้าจอ
+    // เช็คว่าไม่มีการใช้งานทั้งกล้องและสัมผัส
     const noInteraction = (now - lastSeenTime > IDLE_TIME_LIMIT);
 
     if (window.isBusy || personInFrameTime !== null || !noInteraction) {
@@ -79,7 +77,6 @@ function resetToHome() {
 
     resetSystemState();
     forceUnmute(); 
-    
     const welcomeMsg = window.currentLang === 'th' ? "กดปุ่มไมค์เพื่อสอบถามข้อมูลได้เลยครับ" : "Please tap the microphone to ask for information.";
     displayResponse(welcomeMsg);
     window.hasGreeted = false; 
@@ -92,7 +89,7 @@ function restartIdleTimer() {
 }
 
 /**
- * 3. ระบบดวงตา AI (Person Detection)
+ * 3. ระบบดวงตา AI (Detection Logic)
  */
 async function initCamera() {
     try {
@@ -106,7 +103,7 @@ async function initCamera() {
                 requestAnimationFrame(detectPerson); 
             };
         }
-    } catch (err) { console.warn("Camera Access Denied:", err); }
+    } catch (err) { console.warn("Camera access denied:", err); }
 }
 
 async function detectPerson() {
@@ -126,9 +123,7 @@ async function detectPerson() {
     const person = predictions.find(p => p.class === "person" && p.score > 0.8 && p.bbox[2] > 120);
 
     if (person) {
-        lastSeenTime = Date.now();
-        restartIdleTimer();
-
+        updateInteractionTime(); // อัปเดตเวลาการใช้งานเมื่อเจอคน
         if (personInFrameTime === null) personInFrameTime = Date.now();
 
         if (!window.isBusy && !window.hasGreeted) {
@@ -137,7 +132,7 @@ async function detectPerson() {
             }
         }
     } else {
-        // คนต้องหายไปจากกล้องเกิน 7 วินาที ถึงจะรีเซ็ตสถานะการทักทาย
+        // ต้องไม่เจอคน 7 วินาที ถึงจะถือว่าคนเดินจากไป
         if (personInFrameTime !== null && (Date.now() - lastSeenTime > 7000)) { 
             personInFrameTime = null;
             window.hasGreeted = false;
@@ -167,7 +162,7 @@ function greetUser() {
 }
 
 /**
- * 4. ระบบประมวลผลคำตอบ
+ * 4. ระบบประมวลผลคำตอบ (Search & Fetch)
  */
 async function getResponse(userQuery) {
     if (!userQuery || window.isBusy) return;
@@ -176,16 +171,17 @@ async function getResponse(userQuery) {
     window.isBusy = true;
     updateLottie('thinking');
     
-    // Safety Fetch Timeout (ป้องกันเน็ตค้าง)
+    // Safety: ป้องกันกรณีเน็ตค้าง (10 วินาที)
     const fetchTimeout = setTimeout(() => {
         if (window.isBusy) {
             window.isBusy = false;
-            displayResponse("ขออภัยครับ ระบบใช้เวลาค้นหานานเกินไป ลองใหม่อีกครั้งนะครับ");
+            displayResponse("ขออภัยครับ ระบบเชื่อมต่อฐานข้อมูลล่าช้า ลองใหม่อีกครั้งนะครับ");
             updateLottie('idle');
         }
     }, 10000);
 
     try {
+        // บันทึก Log (ไม่รอผล)
         fetch(`${GAS_URL}?query=${encodeURIComponent(userQuery.trim())}&action=logOnly`, { mode: 'no-cors' });
         
         const query = userQuery.toLowerCase().trim();
@@ -236,14 +232,14 @@ async function getResponse(userQuery) {
 function speak(text) {
     if (!text) return;
     
-    // Safety Unlock: ปลดล็อคอัตโนมัติตามความยาวประโยค
+    // Safety Unlock: คำนวณเวลาสูงสุดที่ควรพูดเสร็จ (อักษรละ 200ms + 5 วิ)
     const safetyTime = (text.length * 200) + 5000;
     
     clearTimeout(speechSafetyTimeout);
     speechSafetyTimeout = setTimeout(() => {
-        console.warn("Safety Unlock Triggered.");
         window.isBusy = false;
         updateLottie('idle');
+        console.warn("Safety Unlock: Force idle status.");
     }, safetyTime);
 
     const msg = new SpeechSynthesisUtterance(text.replace(/[*#-]/g, ""));
@@ -277,7 +273,7 @@ function speak(text) {
 }
 
 /**
- * 6. ฟังก์ชันเสริม (Database & UI)
+ * 6. ฟังก์ชันเริ่มต้นและ UI
  */
 async function initDatabase() {
     try {
@@ -292,19 +288,21 @@ async function initDatabase() {
             displayResponse(window.currentLang === 'th' ? "กดปุ่มไมค์เพื่อสอบถามข้อมูลได้เลยครับ" : "Please tap the microphone to ask for information.");
         }
     } catch (e) { 
-        console.error("Init Error:", e);
-        setTimeout(initDatabase, 5000); 
+        console.error("Initialization Error:", e);
+        setTimeout(initDatabase, 5000); // ลองโหลดใหม่ถ้าล้มเหลว
     }
 }
 
 function renderFAQButtons() {
     const container = document.getElementById('faq-container');
     if (!container || !window.localDatabase || !window.localDatabase["FAQ"]) return;
+    
     container.innerHTML = "";
     window.localDatabase["FAQ"].slice(1).forEach((row) => {
         const qThai = row[0] ? row[0].toString().trim() : "";
         const qEng  = row[1] ? row[1].toString().trim() : "";
         let btnText = (window.currentLang === 'th') ? qThai : qEng;
+        
         if (btnText !== "") {
             const btn = document.createElement('button');
             btn.className = 'faq-btn';
