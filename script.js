@@ -147,7 +147,7 @@ async function detectPerson() {
 
 function greetUser() {
     if (window.hasGreeted || window.isBusy) return; 
-    
+    forceUnmute();
     const hour = new Date().getHours();
     let thTime = hour < 12 ? "สวัสดีตอนเช้าครับ" : (hour < 18 ? "สวัสดีตอนบ่ายครับ" : "สวัสดีครับ");
     let enTime = hour < 12 ? "Good morning" : (hour < 18 ? "Good afternoon" : "Good day");
