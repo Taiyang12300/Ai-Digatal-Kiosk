@@ -130,7 +130,7 @@ async function detectPerson() {
         if (Date.now() - personInFrameTime >= 1500 && !window.hasGreeted) greetUser();
         lastSeenTime = Date.now(); 
     } else {
-        if (personInFrameTime !== null && (Date.now() - lastSeenTime > 10000)) { 
+        if (personInFrameTime !== null && (Date.now() - lastSeenTime > 5000)) { 
             personInFrameTime = null;
             window.hasGreeted = false;
         }
