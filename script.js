@@ -1,6 +1,6 @@
 /**
- * สมองกลน้องนำทาง - เวอร์ชั่น Ultra Stable (Kiosk Professional)
- * แก้ไข: ป้องกันอาการค้าง, รองรับการสัมผัส, และระบบ Safety Timeout
+ * สมองกลน้องนำทาง - เวอร์ชั่น Ultra Stable (Smart Local Brain)
+ * แก้ไข: ป้องกันอาการค้าง, รองรับการสัมผัส, Did you mean? พร้อมปุ่มยืนยัน
  */
 
 window.localDatabase = null;
@@ -13,7 +13,7 @@ const GAS_URL = "https://script.google.com/macros/s/AKfycbz1bkIsQ588u-rpjY-8nMly
 
 let idleTimer; 
 let speechSafetyTimeout; 
-const IDLE_TIME_LIMIT = 45000; // ปรับเป็น 45 วินาทีเพื่อให้คนมีเวลาอ่าน
+const IDLE_TIME_LIMIT = 45000; 
 let video = document.getElementById('video');
 let cocoModel = null; 
 let isDetecting = true; 
@@ -23,7 +23,7 @@ let lastDetectionTime = 0;
 const DETECTION_INTERVAL = 500; 
 
 /**
- * 1. ระบบจัดการสถานะและความเสถียร (Centralized State Control)
+ * 1. ระบบจัดการสถานะและความเสถียร
  */
 
 function resetSystemState() {
@@ -33,13 +33,11 @@ function resetSystemState() {
     updateLottie('idle');
 }
 
-// อัปเดตเวลาล่าสุดที่มีการใช้งาน (ทั้งจากกล้องและการสัมผัส)
 function updateInteractionTime() {
     lastSeenTime = Date.now();
     restartIdleTimer();
 }
 
-// ลงทะเบียนการตรวจจับการสัมผัสหน้าจอ
 document.addEventListener('mousedown', updateInteractionTime);
 document.addEventListener('touchstart', updateInteractionTime);
 
@@ -76,14 +74,12 @@ function resetToHome() {
 
     resetSystemState();
     forceUnmute(); 
-
-    // --- เพิ่ม 2 บรรทัดนี้ เพื่อล้างสถานะให้พร้อมทักทายคนใหม่ ---
-    window.hasGreeted = false;      // อนุญาตให้ระบบส่งเสียงทักทายได้อีกครั้ง
-    personInFrameTime = null;       // ล้างประวัติการเจอคน เพื่อเริ่มนับ 1.5 วินาทีใหม่
-    // --------------------------------------------------
+    window.hasGreeted = false;      
+    personInFrameTime = null;       
 
     const welcomeMsg = window.currentLang === 'th' ? "กดปุ่มไมค์เพื่อสอบถามข้อมูลได้เลยครับ" : "Please tap the microphone to ask for information.";
     displayResponse(welcomeMsg);
+    renderFAQButtons(); // คืนค่าปุ่ม FAQ ปกติ
     restartIdleTimer();
 }
 
@@ -93,7 +89,7 @@ function restartIdleTimer() {
 }
 
 /**
- * 3. ระบบดวงตา AI (Detection Logic)
+ * 3. ระบบดวงตา AI (ป้องกัน CPU Spike ด้วย setTimeout)
  */
 async function initCamera() {
     try {
@@ -111,8 +107,9 @@ async function initCamera() {
 }
 
 async function detectPerson() {
+    // ป้องกัน CPU Spike: ถ้าโมเดลไม่พร้อม ให้รอ 1 วินาทีแล้วค่อยเช็คใหม่
     if (!isDetecting || !cocoModel) { 
-        requestAnimationFrame(detectPerson); 
+        setTimeout(() => requestAnimationFrame(detectPerson), 1000); 
         return; 
     }
 
@@ -127,16 +124,14 @@ async function detectPerson() {
     const person = predictions.find(p => p.class === "person" && p.score > 0.8 && p.bbox[2] > 120);
 
     if (person) {
-        updateInteractionTime(); // อัปเดตเวลาการใช้งานเมื่อเจอคน
+        updateInteractionTime();
         if (personInFrameTime === null) personInFrameTime = Date.now();
-
         if (!window.isBusy && !window.hasGreeted) {
             if (Date.now() - personInFrameTime >= 1500) {
                 greetUser();
             }
         }
     } else {
-        // ต้องไม่เจอคน 7 วินาที ถึงจะถือว่าคนเดินจากไป
         if (personInFrameTime !== null && (Date.now() - lastSeenTime > 7000)) { 
             personInFrameTime = null;
             window.hasGreeted = false;
@@ -166,30 +161,28 @@ function greetUser() {
 }
 
 /**
- * 4. ระบบประมวลผลคำตอบ (Search & Fetch)
+ * 4. ระบบประมวลผลคำตอบ (Smart Search พร้อม Did you mean?)
  */
 async function getResponse(userQuery) {
-    if (!userQuery || window.isBusy) return;
+    if (!userQuery || window.isBusy || !window.localDatabase) return;
     
     resetSystemState(); 
     window.isBusy = true;
     updateLottie('thinking');
     
-    // Safety: ป้องกันกรณีเน็ตค้าง (10 วินาที)
     const fetchTimeout = setTimeout(() => {
         if (window.isBusy) {
             window.isBusy = false;
-            displayResponse("ขออภัยครับ ระบบเชื่อมต่อฐานข้อมูลล่าช้า ลองใหม่อีกครั้งนะครับ");
+            displayResponse("ขออภัยครับ ระบบประมวลผลล่าช้า ลองใหม่อีกครั้งนะครับ");
             updateLottie('idle');
         }
     }, 10000);
 
     try {
-        // บันทึก Log (ไม่รอผล)
         fetch(`${GAS_URL}?query=${encodeURIComponent(userQuery.trim())}&action=logOnly`, { mode: 'no-cors' });
         
         const query = userQuery.toLowerCase().trim();
-        let bestMatch = { answer: "", score: 0 };
+        let bestMatch = { answer: "", score: 0, matchedKey: "" };
 
         Object.keys(window.localDatabase).forEach(sheetName => {
             if (["Lottie_State", "Config", "FAQ"].includes(sheetName)) return;
@@ -201,23 +194,38 @@ async function getResponse(userQuery) {
                 let ans = window.currentLang === 'th' ? (item[1] || "ไม่มีข้อมูล") : (item[2] || "No data");
                 
                 keyList.forEach(key => {
-                    let currentScore = 0;
-                    if (query === key) currentScore = 1.0;
-                    else if (query.includes(key) && key.length > 4) currentScore = 0.85;
-                    else currentScore = calculateSimilarity(query, key);
+                    let score = 0;
+                    if (query === key) score = 1.0;
+                    else if (query.includes(key) && key.length > 3) score = 0.85;
+                    else score = calculateSimilarity(query, key);
 
-                    if (currentScore > bestMatch.score) {
-                        bestMatch = { answer: ans, score: currentScore };
+                    if (score > bestMatch.score) {
+                        bestMatch = { answer: ans, score: score, matchedKey: key };
                     }
                 });
             });
         });
 
         clearTimeout(fetchTimeout);
-        if (bestMatch.score >= 0.60) {
+
+        // --- Logic ตัดสินใจ ---
+        if (bestMatch.score >= 0.8) {
+            // [A] ตรงมาก -> ตอบเลย
             displayResponse(bestMatch.answer);
             speak(bestMatch.answer);
-        } else {
+        } 
+        else if (bestMatch.score >= 0.35) {
+            // [B] ก้ำกึ่ง -> ถามกลับ (Did you mean?)
+            const suggestMsg = (window.currentLang === 'th')
+                ? `น้องนำทางไม่แน่ใจว่าใช่เรื่อง "${bestMatch.matchedKey}" หรือเปล่าครับ?`
+                : `I'm not sure, did you mean "${bestMatch.matchedKey}"?`;
+            
+            displayResponse(suggestMsg);
+            speak(suggestMsg);
+            renderConfirmButtons(bestMatch.answer); // แสดงปุ่ม ใช่/ไม่ใช่
+        } 
+        else {
+            // [C] หาไม่เจอเลย
             const fallback = (window.currentLang === 'th') 
                 ? "ขออภัย น้องนำทางไม่พบข้อมูลที่ตรงกันครับ" 
                 : "I'm sorry, I couldn't find a matching answer.";
@@ -231,30 +239,58 @@ async function getResponse(userQuery) {
 }
 
 /**
- * 5. ระบบเสียง (Speech with Safety Unlock)
+ * 5. ระบบปุ่มยืนยัน (Smart Suggestion Buttons)
+ */
+function renderConfirmButtons(answer) {
+    const container = document.getElementById('faq-container');
+    if (!container) return;
+    container.innerHTML = ""; // ล้างปุ่ม FAQ เดิม
+
+    // ปุ่ม "ใช่" (สีเขียว)
+    const btnYes = document.createElement('button');
+    btnYes.className = 'faq-btn';
+    btnYes.style.border = "2px solid #2ecc71";
+    btnYes.style.background = "#f1fdf6";
+    btnYes.innerHTML = (window.currentLang === 'th') ? '<i class="fas fa-check"></i> ใช่' : '<i class="fas fa-check"></i> Yes';
+    btnYes.onclick = () => {
+        displayResponse(answer);
+        speak(answer);
+        setTimeout(renderFAQButtons, 5000); // แสดงคำตอบ 5 วิแล้วกลับไปปุ่มปกติ
+    };
+
+    // ปุ่ม "ไม่ใช่" (สีแดง)
+    const btnNo = document.createElement('button');
+    btnNo.className = 'faq-btn';
+    btnNo.style.border = "2px solid #e74c3c";
+    btnNo.style.background = "#fdf2f1";
+    btnNo.innerHTML = (window.currentLang === 'th') ? '<i class="fas fa-times"></i> ไม่ใช่' : '<i class="fas fa-times"></i> No';
+    btnNo.onclick = () => {
+        displayResponse((window.currentLang === 'th') ? "ลองถามใหม่อีกครั้งนะครับ" : "Please try asking again.");
+        renderFAQButtons(); // คืนค่าปุ่ม FAQ ทันที
+    };
+
+    container.appendChild(btnYes);
+    container.appendChild(btnNo);
+}
+
+/**
+ * 6. ระบบเสียง (Speech with Hard Cancel)
  */
 function speak(text) {
     if (!text) return;
+    window.speechSynthesis.cancel(); // ล้างคิวเก่าทุกครั้งก่อนพูดเพื่อกันค้าง
     forceUnmute();
-    // Safety Unlock: คำนวณเวลาสูงสุดที่ควรพูดเสร็จ (อักษรละ 200ms + 5 วิ)
-    const safetyTime = (text.length * 200) + 5000;
     
+    const safetyTime = (text.length * 200) + 5000;
     clearTimeout(speechSafetyTimeout);
     speechSafetyTimeout = setTimeout(() => {
         window.isBusy = false;
         updateLottie('idle');
-        console.warn("Safety Unlock: Force idle status.");
     }, safetyTime);
 
     const msg = new SpeechSynthesisUtterance(text.replace(/[*#-]/g, ""));
     msg.lang = (window.currentLang === 'th') ? 'th-TH' : 'en-US';
-    msg.volume = window.isMuted ? 0 : 1;
-
-    const voices = window.speechSynthesis.getVoices();
-    if (window.currentLang === 'th') {
-        msg.voice = voices.find(v => v.name.includes('Achara')) || voices.find(v => v.name.includes('Google ภาษาไทย'));
-    }
-
+    
     msg.onstart = () => {
         window.isBusy = true;
         updateLottie('talking');
@@ -267,17 +303,13 @@ function speak(text) {
         restartIdleTimer(); 
     };
 
-    msg.onerror = () => {
-        clearTimeout(speechSafetyTimeout);
-        window.isBusy = false;
-        updateLottie('idle');
-    };
+    msg.onerror = () => { resetSystemState(); };
 
     window.speechSynthesis.speak(msg);
 }
 
 /**
- * 6. ฟังก์ชันเริ่มต้นและ UI
+ * 7. ระบบเริ่มต้น
  */
 async function initDatabase() {
     try {
@@ -292,8 +324,7 @@ async function initDatabase() {
             displayResponse(window.currentLang === 'th' ? "กดปุ่มไมค์เพื่อสอบถามข้อมูลได้เลยครับ" : "Please tap the microphone to ask for information.");
         }
     } catch (e) { 
-        console.error("Initialization Error:", e);
-        setTimeout(initDatabase, 5000); // ลองโหลดใหม่ถ้าล้มเหลว
+        setTimeout(initDatabase, 5000); 
     }
 }
 
